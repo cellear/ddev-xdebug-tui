@@ -18,6 +18,8 @@ type App struct {
 	app              *tview.Application
 	statusBar        *tview.TextView
 	sourcePanel      *tview.TextView
+	stackPanel       *tview.TextView
+	variablesPanel   *tview.TextView
 	breakpointsPanel *tview.TextView
 	mu               sync.Mutex
 	session          *dbgclient.Session
@@ -28,25 +30,22 @@ type App struct {
 func NewApp() *App {
 	app := tview.NewApplication()
 
-	// Create the main grid container
 	grid := tview.NewGrid()
-	grid.SetRows(1, 0, 0, 1)  // status bar, stack+source, variables+breakpoints, command input
-	grid.SetColumns(25, 0)     // left panel (stack), right panel (source)
+	grid.SetRows(1, 0, 0, 1)
+	grid.SetColumns(25, 0)
 	grid.SetBorders(true)
 
-	// Status bar at the top
 	statusBar := tview.NewTextView()
 	statusBar.SetText("ddev-xdebug-tui | waiting for Xdebug connection")
 	statusBar.SetBackgroundColor(tcell.ColorBlue)
 	statusBar.SetTextColor(tcell.ColorWhite)
 
-	// Stack panel (top-left)
 	stackPanel := tview.NewTextView()
 	stackPanel.SetBorder(true)
 	stackPanel.SetTitle("Stack")
 	stackPanel.SetText("")
+	stackPanel.SetDynamicColors(true)
 
-	// Source panel (top-right): dynamic colors and regions for line highlighting.
 	sourcePanel := tview.NewTextView()
 	sourcePanel.SetBorder(true)
 	sourcePanel.SetTitle("Source")
@@ -56,59 +55,49 @@ func NewApp() *App {
 	sourcePanel.SetScrollable(true)
 	sourcePanel.SetWrap(false)
 
-	// Variables panel (bottom-left)
 	variablesPanel := tview.NewTextView()
 	variablesPanel.SetBorder(true)
 	variablesPanel.SetTitle("Variables")
 	variablesPanel.SetText("")
+	variablesPanel.SetDynamicColors(true)
 
-	// Breakpoints panel (bottom-right)
 	breakpointsPanel := tview.NewTextView()
 	breakpointsPanel.SetBorder(true)
 	breakpointsPanel.SetTitle("Breakpoints")
 	breakpointsPanel.SetText("")
 
-	// Top row: Stack | Source
 	topRow := tview.NewFlex()
 	topRow.SetDirection(tview.FlexColumn)
 	topRow.AddItem(stackPanel, 0, 1, false)
 	topRow.AddItem(sourcePanel, 0, 3, false)
 
-	// Bottom row: Variables | Breakpoints
 	bottomRow := tview.NewFlex()
 	bottomRow.SetDirection(tview.FlexColumn)
 	bottomRow.AddItem(variablesPanel, 0, 1, false)
 	bottomRow.AddItem(breakpointsPanel, 0, 1, false)
 
-	// Command input at the bottom
 	commandInput := tview.NewInputField()
 	commandInput.SetLabel("Command: ")
 	commandInput.SetLabelColor(tcell.ColorWhite)
 	commandInput.SetFieldBackgroundColor(tcell.ColorBlack)
 	commandInput.SetFieldTextColor(tcell.ColorWhite)
 
-	// Add items to grid
 	grid.AddItem(statusBar, 0, 0, 1, 2, 0, 0, false)
 	grid.AddItem(topRow, 1, 0, 1, 2, 0, 0, false)
 	grid.AddItem(bottomRow, 2, 0, 1, 2, 0, 0, false)
 	grid.AddItem(commandInput, 3, 0, 1, 2, 0, 0, true)
 
-	// Set root and configure app
 	app.SetRoot(grid, true)
 
-	// Build the App struct first so closures below can reference it.
 	tuiApp := &App{
 		app:              app,
 		statusBar:        statusBar,
 		sourcePanel:      sourcePanel,
+		stackPanel:       stackPanel,
+		variablesPanel:   variablesPanel,
 		breakpointsPanel: breakpointsPanel,
 	}
 
-	// Global key bindings.
-	// Single-char step commands (s/n/o/r) fire immediately when the command
-	// input is empty, so the user doesn't have to press Enter after each step.
-	// When the input has text (e.g. typing "b index.php:10"), these keys are
-	// passed through normally so they don't accidentally trigger a step.
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Rune() {
 		case 'q':
@@ -123,13 +112,12 @@ func NewApp() *App {
 		return event
 	})
 
-	// Multi-word commands (e.g. breakpoints) are submitted via Enter in the input bar.
 	commandInput.SetDoneFunc(func(key tcell.Key) {
 		if key != tcell.KeyEnter {
 			return
 		}
 		cmd := strings.TrimSpace(commandInput.GetText())
-		commandInput.SetText("") // clear after submit
+		commandInput.SetText("")
 		if cmd == "" {
 			return
 		}
@@ -147,16 +135,13 @@ func (a *App) SetStatus(text string) {
 }
 
 // SetInitInfo displays the language and fileURI from Xdebug's init packet.
-// Safe to call from any goroutine.
 func (a *App) SetInitInfo(language, fileURI string) {
 	a.app.QueueUpdateDraw(func() {
 		a.sourcePanel.SetText(fmt.Sprintf("Language: %s\nFile:     %s", language, fileURI))
 	})
 }
 
-// SetSource displays formatted source content in the Source panel and highlights
-// the current line. content should be produced by source.Format().
-// Safe to call from any goroutine.
+// SetSource displays formatted source content in the Source panel.
 func (a *App) SetSource(content string, currentLine int) {
 	a.app.QueueUpdateDraw(func() {
 		a.sourcePanel.SetText(content)
@@ -167,23 +152,43 @@ func (a *App) SetSource(content string, currentLine int) {
 	})
 }
 
-// SetBreakpoints updates the Breakpoints panel with the given text.
-// Safe to call from any goroutine.
+// SetVariables updates the Variables panel. Safe to call from any goroutine.
+func (a *App) SetVariables(text string) {
+	a.app.QueueUpdateDraw(func() {
+		a.variablesPanel.SetText(text)
+	})
+}
+
+// SetStack updates the Stack panel. Safe to call from any goroutine.
+func (a *App) SetStack(text string) {
+	a.app.QueueUpdateDraw(func() {
+		a.stackPanel.SetText(text)
+	})
+}
+
+// SetBreakpoints updates the Breakpoints panel. Safe to call from any goroutine.
 func (a *App) SetBreakpoints(text string) {
 	a.app.QueueUpdateDraw(func() {
 		a.breakpointsPanel.SetText(text)
 	})
 }
 
-// SetSession stores the active debug session and immediately refreshes the
-// source panel to display the current paused location. Safe to call from any goroutine.
+// SetSession stores the active debug session and immediately refreshes all panels.
 func (a *App) SetSession(session *dbgclient.Session) {
 	a.mu.Lock()
 	a.session = session
 	a.mu.Unlock()
 	if session != nil {
-		a.refreshSource(session)
+		a.refreshAll(session)
 	}
+}
+
+// ClearSession nils the session pointer. Panels are intentionally NOT cleared
+// so the user can see the last debug state while waiting for the next connection.
+func (a *App) ClearSession() {
+	a.mu.Lock()
+	a.session = nil
+	a.mu.Unlock()
 }
 
 // getSession retrieves the stored debug session. Safe to call from any goroutine.
@@ -204,6 +209,15 @@ func parseFileAndLine(arg string) (file string, line int, err error) {
 		return "", 0, fmt.Errorf("invalid line number %q", parts[1])
 	}
 	return parts[0], n, nil
+}
+
+// currentFileBase returns just the filename portion of the session's CurrentFile URI.
+func currentFileBase(session *dbgclient.Session) string {
+	f := session.CurrentFile
+	if idx := strings.LastIndex(f, "/"); idx >= 0 {
+		f = f[idx+1:]
+	}
+	return f
 }
 
 // handleCommand processes a command string entered by the user.
@@ -231,20 +245,13 @@ func (a *App) handleCommand(cmd string) {
 		// Set breakpoint: "b index.php:6" or shorthand "b 6" (uses current file)
 		arg := strings.TrimPrefix(cmd, "b ")
 		if _, numErr := strconv.Atoi(arg); numErr == nil {
-			// Bare line number — infer filename from the current paused location
-			currentFile := session.CurrentFile
-			if idx := strings.LastIndex(currentFile, "/"); idx >= 0 {
-				currentFile = currentFile[idx+1:]
-			}
-			arg = currentFile + ":" + arg
+			arg = currentFileBase(session) + ":" + arg
 		}
 		file, line, err := parseFileAndLine(arg)
 		if err != nil {
 			a.SetStatus("ddev-xdebug-tui | " + err.Error())
 			return
 		}
-		// Map host filename to container URI for Xdebug
-		// file is a bare filename like "index.php"; build a container URI
 		containerURI := "file:///var/www/html/" + file
 		id, err := session.SetBreakpoint(containerURI, line)
 		if err != nil {
@@ -256,8 +263,12 @@ func (a *App) handleCommand(cmd string) {
 		a.SetStatus(fmt.Sprintf("ddev-xdebug-tui | breakpoint set: %s:%d", file, line))
 		return
 	case strings.HasPrefix(cmd, "rb "):
-		// Remove breakpoint: "rb index.php:6"
-		file, line, err := parseFileAndLine(strings.TrimPrefix(cmd, "rb "))
+		// Remove breakpoint: "rb index.php:6" or shorthand "rb 6" (uses current file)
+		arg := strings.TrimPrefix(cmd, "rb ")
+		if _, numErr := strconv.Atoi(arg); numErr == nil {
+			arg = currentFileBase(session) + ":" + arg
+		}
+		file, line, err := parseFileAndLine(arg)
 		if err != nil {
 			a.SetStatus("ddev-xdebug-tui | " + err.Error())
 			return
@@ -285,19 +296,24 @@ func (a *App) handleCommand(cmd string) {
 	}
 
 	if status == "stopping" || status == "stopped" {
-		a.SetStatus("ddev-xdebug-tui | session ended")
+		a.SetStatus("ddev-xdebug-tui | Script finished — waiting for next connection…")
+		session.Close() // signal main.go to loop back to ln.Accept()
 		return
 	}
 
 	// Update status bar with new position
-	filename := session.CurrentFile
-	if idx := strings.LastIndex(filename, "/"); idx >= 0 {
-		filename = filename[idx+1:]
-	}
-	a.SetStatus(fmt.Sprintf("ddev-xdebug-tui | PHP | %s | line %d", filename, session.CurrentLine))
+	a.SetStatus(fmt.Sprintf("ddev-xdebug-tui | PHP | %s | line %d",
+		currentFileBase(session), session.CurrentLine))
 
-	// Refresh source panel
+	// Refresh all panels
+	a.refreshAll(session)
+}
+
+// refreshAll refreshes source, variables, and stack panels from the current session state.
+func (a *App) refreshAll(session *dbgclient.Session) {
 	a.refreshSource(session)
+	a.refreshVariables(session)
+	a.refreshStack(session)
 }
 
 // refreshSource maps the session's current container path to a host path,
@@ -314,6 +330,50 @@ func (a *App) refreshSource(session *dbgclient.Session) {
 		return
 	}
 	a.SetSource(content, session.CurrentLine)
+}
+
+// refreshVariables fetches and displays local variables for the current frame.
+func (a *App) refreshVariables(session *dbgclient.Session) {
+	vars, err := session.ContextGet()
+	if err != nil {
+		a.SetVariables(fmt.Sprintf("error: %s", err.Error()))
+		return
+	}
+	if len(vars) == 0 {
+		a.SetVariables("(no variables)")
+		return
+	}
+	var sb strings.Builder
+	for _, v := range vars {
+		fmt.Fprintf(&sb, "%s = %s\n", v.Name, v.Value)
+	}
+	a.SetVariables(sb.String())
+}
+
+// refreshStack fetches and displays the current call stack.
+func (a *App) refreshStack(session *dbgclient.Session) {
+	frames, err := session.StackGet()
+	if err != nil {
+		a.SetStack(fmt.Sprintf("error: %s", err.Error()))
+		return
+	}
+	if len(frames) == 0 {
+		a.SetStack("(empty)")
+		return
+	}
+	var sb strings.Builder
+	for _, f := range frames {
+		filename := f.Filename
+		if idx := strings.LastIndex(filename, "/"); idx >= 0 {
+			filename = filename[idx+1:]
+		}
+		if f.Level == 0 {
+			fmt.Fprintf(&sb, "► %s:%d\n", filename, f.Lineno)
+		} else {
+			fmt.Fprintf(&sb, "  %s:%d\n", filename, f.Lineno)
+		}
+	}
+	a.SetStack(sb.String())
 }
 
 // Run starts the application event loop.

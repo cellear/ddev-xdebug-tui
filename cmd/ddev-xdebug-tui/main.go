@@ -13,16 +13,14 @@ func main() {
 	app := tui.NewApp()
 
 	// Start TCP listener in background goroutine.
-	// When Xdebug connects, read the init packet, send step_into (break on entry),
-	// then load and display the source file.
+	// dbgclient.Listen now loops: after each session ends (onConnect returns),
+	// it accepts the next connection automatically.
 	go func() {
 		err := dbgclient.Listen(func(conn net.Conn) {
 			app.SetStatus("ddev-xdebug-tui | Xdebug connected")
 
-			// Create a session — owns the persistent bufio.Reader for this connection.
 			session := dbgclient.NewSession(conn)
 
-			// Read the init packet Xdebug sends immediately on connect.
 			data, err := session.ReadMessage()
 			if err != nil {
 				app.SetStatus("ddev-xdebug-tui | read error: " + err.Error())
@@ -30,14 +28,13 @@ func main() {
 				return
 			}
 
-			language, fileURI, err := dbgclient.ParseInit(data)
+			language, _, err := dbgclient.ParseInit(data)
 			if err != nil {
 				app.SetStatus("ddev-xdebug-tui | parse error: " + err.Error())
 				conn.Close()
 				return
 			}
 
-			// Send step_into to pause at the first executable line (break on entry).
 			_, err = session.StepInto()
 			if err != nil {
 				app.SetStatus("ddev-xdebug-tui | step error: " + err.Error())
@@ -45,10 +42,9 @@ func main() {
 				return
 			}
 
-			// Store session — also triggers initial source panel refresh.
+			// Store session and refresh all panels (source, variables, stack).
 			app.SetSession(session)
 
-			// Update status bar: "ddev-xdebug-tui | PHP | index.php | line N"
 			filename := session.CurrentFile
 			if idx := strings.LastIndex(filename, "/"); idx >= 0 {
 				filename = filename[idx+1:]
@@ -56,8 +52,12 @@ func main() {
 			app.SetStatus(fmt.Sprintf("ddev-xdebug-tui | %s | %s | line %d",
 				language, filename, session.CurrentLine))
 
-			// Keep connection open — session is ready for step commands.
-			_ = fileURI
+			// Block until handleCommand calls session.Close() on stopping/stopped.
+			// This keeps onConnect alive so Listen doesn't loop prematurely.
+			<-session.Done
+
+			// Nil the session; panels intentionally left showing last state.
+			app.ClearSession()
 		})
 		if err != nil {
 			app.SetStatus("ddev-xdebug-tui | listener error: " + err.Error())
