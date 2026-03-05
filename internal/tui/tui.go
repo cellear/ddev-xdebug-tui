@@ -1,14 +1,17 @@
 package tui
 
 import (
+	"fmt"
+
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
 // App represents the TUI application.
 type App struct {
-	app       *tview.Application
-	statusBar *tview.TextView
+	app         *tview.Application
+	statusBar   *tview.TextView
+	sourcePanel *tview.TextView
 }
 
 // NewApp creates and returns a new TUI application with the full split-pane layout.
@@ -87,8 +90,9 @@ func NewApp() *App {
 	})
 	
 	return &App{
-		app:       app,
-		statusBar: statusBar,
+		app:         app,
+		statusBar:   statusBar,
+		sourcePanel: sourcePanel,
 	}
 }
 
@@ -97,6 +101,14 @@ func NewApp() *App {
 func (a *App) SetStatus(text string) {
 	a.app.QueueUpdateDraw(func() {
 		a.statusBar.SetText(text)
+	})
+}
+
+// SetInitInfo displays the language and fileURI from Xdebug's init packet.
+// Safe to call from any goroutine.
+func (a *App) SetInitInfo(language, fileURI string) {
+	a.app.QueueUpdateDraw(func() {
+		a.sourcePanel.SetText(fmt.Sprintf("Language: %s\nFile:     %s", language, fileURI))
 	})
 }
 

@@ -77,7 +77,7 @@ prompt explicitly mentions this.
 ---
 
 ### S2-3: DBGp Message Framing
-**Status:** [backlog]
+**Status:** [done]
 **Owner:** claude-sonnet-4-6
 
 **Prerequisites:** S2-2 done and Demo A passed.
@@ -112,7 +112,7 @@ rather than reading until `\0`.
 ---
 
 ### S2-4: Parse Init Packet + Display in TUI
-**Status:** [backlog]
+**Status:** [done]
 **Owner:** claude-sonnet-4-6
 
 **Prerequisites:** S2-3 done and compiling.
@@ -183,4 +183,4 @@ TCP connect → frame read → XML parse → UI update.
 
 ---
 
-Last updated: 2026-03-05 by claude-haiku-4-5
+Last updated: 2026-03-05 by claude-sonnet-4-6
