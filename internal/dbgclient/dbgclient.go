@@ -2,6 +2,7 @@ package dbgclient
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -103,6 +104,10 @@ type initPacket struct {
 // ParseInit parses an Xdebug <init> XML packet.
 // Returns language and fileuri attributes, or an error.
 func ParseInit(data []byte) (language string, fileURI string, err error) {
+	// Go's xml package only supports UTF-8. Xdebug declares iso-8859-1 but
+	// the content is ASCII-compatible, so we rewrite the declaration before parsing.
+	data = bytes.ReplaceAll(data, []byte(`encoding="iso-8859-1"`), []byte(`encoding="UTF-8"`))
+
 	var packet initPacket
 	err = xml.Unmarshal(data, &packet)
 	if err != nil {
