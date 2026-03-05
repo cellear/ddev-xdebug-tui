@@ -90,16 +90,7 @@ func NewApp() *App {
 	// Set root and configure app
 	app.SetRoot(grid, true)
 
-	// Handle key bindings
-	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Rune() == 'q' {
-			app.Stop()
-			return nil
-		}
-		return event
-	})
-
-	// Build the App struct first
+	// Build the App struct first so closures below can reference it.
 	tuiApp := &App{
 		app:              app,
 		statusBar:        statusBar,
@@ -107,7 +98,26 @@ func NewApp() *App {
 		breakpointsPanel: breakpointsPanel,
 	}
 
-	// Now wire the input handler (tuiApp is available in the closure)
+	// Global key bindings.
+	// Single-char step commands (s/n/o/r) fire immediately when the command
+	// input is empty, so the user doesn't have to press Enter after each step.
+	// When the input has text (e.g. typing "b index.php:10"), these keys are
+	// passed through normally so they don't accidentally trigger a step.
+	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Rune() {
+		case 'q':
+			app.Stop()
+			return nil
+		case 's', 'n', 'o', 'r':
+			if commandInput.GetText() == "" {
+				go tuiApp.handleCommand(string(event.Rune()))
+				return nil
+			}
+		}
+		return event
+	})
+
+	// Multi-word commands (e.g. breakpoints) are submitted via Enter in the input bar.
 	commandInput.SetDoneFunc(func(key tcell.Key) {
 		if key != tcell.KeyEnter {
 			return
