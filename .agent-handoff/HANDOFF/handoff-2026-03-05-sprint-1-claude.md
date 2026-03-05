@@ -1,19 +1,28 @@
-# Handoff - 2026-03-05 - Sprint 1 - Claude
+# Handoff - 2026-03-05 - Sprint 1 - claude-sonnet-4-6
+
+## Models Used This Session
+
+| Task | Model |
+|------|-------|
+| Planning, sprint doc, architecture review | claude-sonnet-4-6 |
+| PHP test project, DDEV fixes, LEARNINGS doc, handoff | claude-sonnet-4-6 |
+| S1-2 Go scaffold, S1-3 TUI shell, S1-4 DDEV add-on stub | claude-haiku-4-5 |
+| Original implementation plan (prior session) | Codex |
 
 ## What Was Attempted and Outcome
 
 Full Sprint 1 completed end-to-end. All four stories done and demo passed.
 
-- Reviewed existing plan docs and gave architectural feedback
-- Introduced scrum/sprint structure for the project
-- Drafted Sprint 1 in `.agent-handoff/SPRINTS/sprint-1.md`
-- Created PHP test project (`testdata/php-test-project/`)
-- Created GitHub repo `cellear/ddev-xdebug-tui` (private)
-- Launched Haiku to implement S1-2, S1-3, S1-4
-- Fixed Haiku's hallucinated tview dependency version
-- Fixed DDEV add-on file structure (wrong path + command name conflict)
+- Reviewed existing plan docs and gave architectural feedback (claude-sonnet-4-6)
+- Introduced scrum/sprint structure for the project (claude-sonnet-4-6)
+- Drafted Sprint 1 in `.agent-handoff/SPRINTS/sprint-1.md` (claude-sonnet-4-6)
+- Created PHP test project (`testdata/php-test-project/`) (claude-sonnet-4-6)
+- Created GitHub repo `cellear/ddev-xdebug-tui` (private) (human + claude-sonnet-4-6)
+- Implemented S1-2, S1-3, S1-4 (claude-haiku-4-5)
+- Fixed Haiku's hallucinated tview dependency version (claude-sonnet-4-6)
+- Fixed DDEV add-on file structure — wrong path + command name conflict (claude-sonnet-4-6)
 - Sprint 1 demo passed: `ddev xdebug-tui` launches full split-pane TUI
-- Wrote `LEARNINGS/sprint-1.md` for PHP developers new to Go
+- Wrote `LEARNINGS/sprint-1.md` for PHP developers new to Go (claude-sonnet-4-6)
 
 ## What Worked / What Did Not
 
@@ -81,4 +90,4 @@ Full Sprint 1 completed end-to-end. All four stories done and demo passed.
 
 Sprint 2 planning: TCP listener on port 9003, accept first Xdebug connection, update status bar when connected. See `.agent-handoff/DOC/implementation-plan.md` steps 3–4 for scope.
 
-Last updated: 2026-03-05 by Claude
+Last updated: 2026-03-05 by claude-sonnet-4-6
