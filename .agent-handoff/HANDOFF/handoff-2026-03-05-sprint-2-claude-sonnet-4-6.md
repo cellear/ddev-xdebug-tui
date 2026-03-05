@@ -16,9 +16,16 @@ Sprint 2 completed end-to-end. All four stories done, both demos passed.
 - Planned Sprint 2 with two demo checkpoints (Demo A: connection, Demo B: init packet)
 - Haiku implemented TCP listener (S2-1) and TUI connection wiring (S2-2)
 - Demo A passed: status bar updated to "Xdebug connected" on browser visit
+
+  ![Demo A wireframe](../../WIREFRAMES/ddev-xdebug-tui-wireframe-S2-2.svg)
+  ![Demo A screenshot](../../SCREENSHOTS/S2-2-demo.jpeg)
+
 - Sonnet implemented DBGp message framing (S2-3) and init packet parsing (S2-4)
 - Fixed post-demo: Go's `encoding/xml` rejects `iso-8859-1` declaration from Xdebug — rewrote to UTF-8 before parsing
 - Demo B passed: status bar shows `"ddev-xdebug-tui | PHP | index.php"`, Source panel shows language and full file URI
+
+  ![Demo B wireframe](../../WIREFRAMES/ddev-xdebug-tui-wireframe-s2-4.svg)
+  ![Demo B screenshot](../../SCREENSHOTS/s2-4-demo.jpeg)
 
 ## What Worked / What Did Not
 

@@ -298,3 +298,7 @@ launches a full-screen terminal UI with:
 
 No debugger logic yet — just the shell. Sprint 2 adds the TCP listener that
 Xdebug will connect to.
+
+![Sprint 1 final state](../WIREFRAMES/ddev-xdebug-tui-wireframe-s1-4.svg)
+
+![Sprint 1 demo screenshot](../SCREENSHOTS/ddev-xdebug-tui-first-screenshot.jpeg)
