@@ -36,7 +36,7 @@ func NewApp() *App {
 	grid.SetBorders(true)
 
 	statusBar := tview.NewTextView()
-	statusBar.SetText("ddev-xdebug-tui | waiting for Xdebug connection")
+	statusBar.SetText("ddev-xdebug-tui v0.4 | waiting for Xdebug connection")
 	statusBar.SetBackgroundColor(tcell.ColorBlue)
 	statusBar.SetTextColor(tcell.ColorWhite)
 
