@@ -1,184 +1,260 @@
 # Sprint 2 Learnings: Go for PHP Developers
 
-This document explains the Go concepts introduced in Sprint 2, which added a
-TCP listener, Xdebug connection handling, DBGp message framing, and init packet
-parsing. If you haven't read `LEARNINGS/sprint-1.md` yet, start there.
+This document explains the Go concepts introduced in Sprint 2. If you haven't
+read `LEARNINGS/sprint-1.md` yet, start there.
+
+---
+
+## What We Added This Sprint
+
+Sprint 2 wired ddev-xdebug-tui to the real world. Three files changed:
+
+**`internal/dbgclient/dbgclient.go`** — went from an empty stub to the heart
+of the network layer. We added:
+- `Listen()` — opens a TCP socket on port 9003 and waits for Xdebug to connect
+- `ReadMessage()` — reads one complete DBGp message off the wire using the
+  protocol's length-prefix framing
+- `ParseInit()` — parses Xdebug's opening XML handshake to extract the language
+  and the file being debugged
+
+**`internal/tui/tui.go`** — gained two new methods for safely updating the UI
+from background threads, and two panels (`statusBar`, `sourcePanel`) were
+promoted from local variables to struct fields so they could be reached after
+`NewApp()` returned.
+
+**`cmd/ddev-xdebug-tui/main.go`** — grew from 12 lines to 54 lines. The main
+function now spins up the TCP listener in a background goroutine, and the
+callback it passes chains together: connect → read init packet → parse XML →
+update status bar and source panel.
+
+The result: visit the PHP test site in a browser with Xdebug on, and the TUI
+reacts in real time.
 
 ---
 
 ## Goroutines — Go's Lightweight Threads
 
-In PHP, everything runs sequentially. One request, one thread, top to bottom.
-Go programs can run multiple things concurrently using **goroutines** — very
+In PHP, everything runs sequentially — one request, one thread, top to bottom.
+Go programs can do multiple things concurrently using **goroutines** — very
 lightweight threads managed by the Go runtime (not the OS).
 
-Starting a goroutine is just the keyword `go` before a function call:
+Starting a goroutine is just the keyword `go` before a function call. Here's
+the actual code from `main.go`:
 
 ```go
+// Start TCP listener in background goroutine.
+// When Xdebug connects, read the init packet and display it.
 go func() {
-    // this runs concurrently with everything else
-    dbgclient.Listen(...)
+    err := dbgclient.Listen(func(conn net.Conn) {
+        app.SetStatus("ddev-xdebug-tui | Xdebug connected")
+        // ... read and parse init packet
+    })
+    if err != nil {
+        app.SetStatus("ddev-xdebug-tui | listener error: " + err.Error())
+    }
 }()
 ```
 
 The `func() { ... }()` part is an **immediately invoked anonymous function** —
-the same concept as PHP's `(function() { ... })()` in JavaScript, or a closure
-called right away. In Go you see this pattern constantly with goroutines.
+a closure called right away. You see this pattern constantly with goroutines.
+The `go` keyword is the only thing that makes it concurrent; without it, this
+would just be a regular blocking function call.
 
-Our TCP listener runs in a goroutine so it can wait for Xdebug to connect
-without freezing the TUI. While the goroutine sits blocked on `Accept()`,
-the main goroutine keeps the UI responsive.
+While the goroutine sits blocked waiting for Xdebug to connect, the main
+goroutine keeps the TUI responsive.
 
 **The important rule:** goroutines run concurrently, which means two goroutines
 can try to modify the same data at the same time. This causes **race conditions**
-— bugs that are very hard to reproduce. Go has a built-in race detector
-(`go run -race ./...`) that can catch these.
-
----
-
-## The `net` Package — TCP in Go
-
-Go's standard library handles TCP networking directly, no extension needed.
-PHP developers are used to sockets being somewhat painful. In Go they're
-a first-class citizen:
-
-```go
-// PHP equivalent: stream_socket_server('tcp://0.0.0.0:9003', ...)
-listener, err := net.Listen("tcp", ":9003")
-
-// PHP equivalent: stream_socket_accept($server)
-conn, err := listener.Accept()
-```
-
-`net.Conn` is an interface (more on interfaces in a future sprint) that
-represents any network connection. You can read from it and write to it like
-a file. `Accept()` blocks until a client connects — which is exactly why
-we run it in a goroutine.
-
----
-
-## Function Values — Passing Functions as Arguments
-
-In PHP you pass callbacks using `callable` or closures:
-
-```php
-array_map(function($x) { return $x * 2; }, $items);
-```
-
-Go has the same concept — functions are values and can be passed as arguments.
-The type of a function is written as its signature:
-
-```go
-// A function that takes a net.Conn and returns nothing
-func Listen(onConnect func(net.Conn)) error
-```
-
-`func(net.Conn)` is the type — "a function that accepts a net.Conn". When we
-call `Listen`, we pass in a closure:
-
-```go
-dbgclient.Listen(func(conn net.Conn) {
-    app.SetStatus("Xdebug connected")
-})
-```
-
-This is how Go achieves callbacks without needing interfaces or abstract classes.
+— bugs that are very hard to reproduce. Which brings us to...
 
 ---
 
 ## QueueUpdateDraw — Thread-Safe UI Updates
 
-Here's one of the trickiest things in Sprint 2. When our goroutine receives
-an Xdebug connection, it wants to update the TUI (change the status bar text).
+When our goroutine receives an Xdebug connection, it wants to update the TUI.
 But tview is not thread-safe — you can't update UI elements from a goroutine
-directly. Doing so causes a race condition.
+directly. Doing so causes a race condition and may crash.
 
-The solution is `app.QueueUpdateDraw()`:
+The solution is `app.QueueUpdateDraw()`. Here's the actual `SetStatus` method
+we added to `tui.go`:
 
 ```go
-// WRONG — race condition, may crash:
-a.statusBar.SetText("Xdebug connected")
+// SetStatus updates the status bar text. Safe to call from any goroutine.
+// Uses QueueUpdateDraw to avoid race conditions when called from background threads.
+func (a *App) SetStatus(text string) {
+    a.app.QueueUpdateDraw(func() {
+        a.statusBar.SetText(text)
+    })
+}
+```
 
-// CORRECT — schedules the update on the main UI thread:
-a.app.QueueUpdateDraw(func() {
-    a.statusBar.SetText("Xdebug connected")
+`QueueUpdateDraw` schedules the update on the main UI goroutine rather than
+running it immediately. Think of it like JavaScript's `setTimeout(fn, 0)` —
+you're not doing the work now, you're handing it off to the right thread to do
+safely on the next draw cycle.
+
+Notice that `statusBar` is now a field on the `App` struct (not a local
+variable inside `NewApp`). That change was necessary so `SetStatus` could
+reach it after construction. This is a common Go pattern: promote a value
+from local scope to a struct field when you need to access it later.
+
+---
+
+## The `net` Package — TCP in Go
+
+Go's standard library handles TCP networking directly with no extension needed.
+In `dbgclient.go`:
+
+```go
+// Listen starts a TCP listener on :9003 and accepts the first incoming
+// connection. Additional connections are closed immediately (single-session
+// policy). onConnect is called with the accepted connection.
+// Listen is intended to be run in a goroutine.
+func Listen(onConnect func(net.Conn)) error {
+    listener, err := net.Listen("tcp", ":9003")
+    if err != nil {
+        return err
+    }
+    defer listener.Close()
+
+    firstConn, err := listener.Accept()
+    if err != nil {
+        return err
+    }
+    onConnect(firstConn)
+    // ...
+}
+```
+
+`net.Listen` opens the socket (PHP: `stream_socket_server`).
+`listener.Accept()` blocks until a client connects (PHP: `stream_socket_accept`).
+`net.Conn` is the connection object — you read from it and write to it like a file.
+
+`defer listener.Close()` is worth noting: `defer` schedules a call to run when
+the surrounding function returns, no matter how it returns (normal exit, error,
+panic). It's the Go equivalent of PHP's `finally` block. You'll see `defer`
+used constantly for cleanup.
+
+---
+
+## Function Values — Passing Functions as Arguments
+
+Go functions are values and can be passed as arguments. The `Listen` signature:
+
+```go
+func Listen(onConnect func(net.Conn)) error
+```
+
+`func(net.Conn)` is a type — "a function that accepts a `net.Conn`". In `main.go`
+we pass a closure that chains the whole init sequence together:
+
+```go
+dbgclient.Listen(func(conn net.Conn) {
+    app.SetStatus("ddev-xdebug-tui | Xdebug connected")
+
+    data, err := dbgclient.ReadMessage(conn)
+    if err != nil {
+        app.SetStatus("ddev-xdebug-tui | read error: " + err.Error())
+        conn.Close()
+        return
+    }
+
+    language, fileURI, err := dbgclient.ParseInit(data)
+    if err != nil {
+        app.SetStatus("ddev-xdebug-tui | parse error: " + err.Error())
+        conn.Close()
+        return
+    }
+
+    app.SetInitInfo(language, fileURI)
+    // ...
 })
 ```
 
-`QueueUpdateDraw` puts the function into a queue that the main goroutine
-processes on the next draw cycle. Think of it like JavaScript's
-`setTimeout(fn, 0)` — you're not doing the work now, you're scheduling it
-to happen safely on the right thread.
-
-The PHP world doesn't usually deal with this because PHP-FPM handles one
-request per process. This is one of the genuine mental shifts when coming
-to Go.
+This is how Go achieves callbacks without needing interfaces or abstract classes.
+Each `if err != nil` block is Go's equivalent of a `catch` — more on that in
+the error handling section below.
 
 ---
 
-## `bufio.Reader` — Buffered Reading
+## `bufio.Reader` and `io.ReadFull` — Reading Off the Wire
 
-Go's `net.Conn` lets you read bytes from a network connection, but raw reads
-are painful for protocols like DBGp where you need to read one byte at a time
-to find a delimiter.
-
-`bufio.Reader` wraps any reader and adds buffering and convenience methods:
-
-```go
-reader := bufio.NewReader(conn)
-
-// Read one byte at a time efficiently
-b, err := reader.ReadByte()
-```
-
-Without buffering, each `ReadByte()` would make a separate system call (slow).
-With `bufio.Reader`, Go reads a chunk into memory and serves bytes from that
-buffer — much faster.
-
-PHP's equivalent is `fread()` vs `stream_get_contents()` — you can read byte
-by byte, but the stream already buffers under the hood.
-
----
-
-## `io.ReadFull` — Reading Exactly N Bytes
-
-Once we know the DBGp message length, we need to read exactly that many bytes.
-`io.ReadFull` does this reliably:
+The DBGp protocol frames messages as `<decimal-length>\0<xml-payload>\0`. We
+need to read the length prefix one byte at a time (we don't know where it ends),
+then read the payload in one efficient bulk read. Here's the actual
+`ReadMessage` implementation:
 
 ```go
-payload := make([]byte, length)  // allocate a slice of exactly `length` bytes
-n, err := io.ReadFull(reader, payload)
+func ReadMessage(conn net.Conn) ([]byte, error) {
+    reader := bufio.NewReader(conn)
+
+    // Read the length prefix: read bytes until we hit the first \0
+    lengthStr := ""
+    for {
+        b, err := reader.ReadByte()
+        if err != nil {
+            if err == io.EOF {
+                return nil, fmt.Errorf("EOF while reading length prefix")
+            }
+            return nil, fmt.Errorf("error reading length prefix: %w", err)
+        }
+        if b == 0 {
+            break
+        }
+        lengthStr += string(b)
+    }
+
+    // Parse the length string as an integer
+    length, err := strconv.Atoi(lengthStr)
+    if err != nil {
+        return nil, fmt.Errorf("invalid length prefix: %q", lengthStr)
+    }
+
+    // Read exactly `length` bytes for the XML payload
+    payload := make([]byte, length)
+    n, err := io.ReadFull(reader, payload)
+    if err != nil {
+        if err == io.EOF {
+            return nil, fmt.Errorf("EOF while reading payload (expected %d, got %d)", length, n)
+        }
+        return nil, fmt.Errorf("error reading payload: %w", err)
+    }
+
+    // Read and discard the final \0
+    b, err := reader.ReadByte()
+    if err != nil {
+        return nil, fmt.Errorf("error reading final null terminator: %w", err)
+    }
+    if b != 0 {
+        return nil, fmt.Errorf("expected null terminator, got: %c", b)
+    }
+
+    return payload, nil
+}
 ```
 
-Without `ReadFull`, a plain `reader.Read(payload)` might return fewer bytes
-than requested (TCP can deliver data in chunks). `ReadFull` keeps reading until
-the buffer is completely filled or an error occurs.
+A few Go-specific things happening here:
 
-This is the kind of thing PHP abstracts away. In Go you're closer to the
-metal — and `io.ReadFull` is the standard solution.
+**`bufio.NewReader`** wraps the connection with buffering. Without it, each
+`ReadByte()` would make a separate system call (slow). With buffering, Go reads
+a chunk into memory and serves bytes from that buffer.
 
----
+**`make([]byte, length)`** allocates a byte slice of exactly `length` bytes,
+all initialised to zero. The PHP equivalent is roughly `str_repeat("\0", $length)`.
+`[]byte` is Go's type for a mutable sequence of bytes — distinct from `string`,
+which is immutable. You'll see `make` everywhere in Go for allocating slices and maps.
 
-## `make` — Allocating Slices
-
-You'll see `make` all over Go code. For slices (Go's arrays):
-
-```go
-payload := make([]byte, length)
-```
-
-This creates a slice of `length` bytes, all initialised to zero. The PHP
-equivalent is roughly `str_repeat("\0", $length)` — a string of null bytes.
-
-In Go, `[]byte` is a slice of bytes. Strings and byte slices are related but
-distinct; you can convert between them with `string(bytes)` and `[]byte(str)`.
+**`io.ReadFull`** reads until the buffer is completely filled. A plain
+`reader.Read(payload)` might return fewer bytes than requested — TCP delivers
+data in chunks and Read returns whatever arrived. `ReadFull` keeps looping
+until it has everything or hits an error.
 
 ---
 
 ## XML Parsing with `encoding/xml`
 
-Go parses XML by mapping it onto structs using **struct tags** — metadata
-annotations in backtick strings:
+Go parses XML by mapping it onto structs using **struct tags** — metadata in
+backtick strings. From `dbgclient.go`:
 
 ```go
 type initPacket struct {
@@ -186,83 +262,83 @@ type initPacket struct {
     Language string   `xml:"language,attr"`
     FileURI  string   `xml:"fileuri,attr"`
 }
-```
 
-The backtick strings (`` `xml:"..."` ``) tell the XML parser:
-- `xml:"init"` — this struct maps to an element named `<init>`
-- `xml:"language,attr"` — this field maps to the `language` *attribute*
-- `xml:"fileuri,attr"` — this field maps to the `fileuri` *attribute*
+func ParseInit(data []byte) (language string, fileURI string, err error) {
+    // Go's xml package only supports UTF-8. Xdebug declares iso-8859-1 but
+    // the content is ASCII-compatible, so we rewrite the declaration before parsing.
+    data = bytes.ReplaceAll(data, []byte(`encoding="iso-8859-1"`), []byte(`encoding="UTF-8"`))
 
-Then you unmarshal:
-
-```go
-var packet initPacket
-err = xml.Unmarshal(data, &packet)
-// packet.Language is now "PHP"
-// packet.FileURI is now "file:///var/www/html/index.php"
-```
-
-In PHP this would be `simplexml_load_string($xml)->attributes()['language']`.
-Go's approach is more verbose but catches type mismatches at compile time.
-
-### The iso-8859-1 Gotcha
-
-Xdebug sends this XML declaration:
-
-```xml
-<?xml version="1.0" encoding="iso-8859-1"?>
-```
-
-Go's `encoding/xml` only supports UTF-8. Since the actual content is
-ASCII-compatible, the fix is a simple substitution before parsing:
-
-```go
-data = bytes.ReplaceAll(
-    data,
-    []byte(`encoding="iso-8859-1"`),
-    []byte(`encoding="UTF-8"`),
-)
-```
-
-This is a real-world example of a protocol implementation detail that no
-documentation will warn you about — you find it by hitting the error
-(`xml: encoding "iso-8859-1"`) and reasoning about the fix.
-
----
-
-## Error Wrapping with `%w`
-
-In Sprint 1 we saw basic error handling. Sprint 2 introduced **error wrapping**:
-
-```go
-return "", "", fmt.Errorf("failed to parse init packet: %w", err)
-```
-
-The `%w` verb (not `%v` or `%s`) wraps the original error inside a new one.
-This preserves the original error so callers can inspect it with
-`errors.Is()` or `errors.As()` — like PHP's exception chaining
-(`new RuntimeException("context", 0, $previous)`).
-
-For now just know that `%w` is the right choice when wrapping errors, and
-`%v` is for when you just want to include the error message as a string.
-
----
-
-## `strings.LastIndex` — Finding the Last Occurrence
-
-To extract just the filename from `file:///var/www/html/index.php`:
-
-```go
-if idx := strings.LastIndex(fileURI, "/"); idx >= 0 {
-    filename = fileURI[idx+1:]
+    var packet initPacket
+    err = xml.Unmarshal(data, &packet)
+    if err != nil {
+        return "", "", fmt.Errorf("failed to parse init packet: %w", err)
+    }
+    // ...
+    return packet.Language, packet.FileURI, nil
 }
 ```
 
-`strings.LastIndex` finds the position of the last `/`. Then `fileURI[idx+1:]`
-takes everything after it — Go's **slice notation** for strings.
+The struct tags:
+- `` `xml:"init"` `` — this struct maps to an `<init>` element
+- `` `xml:"language,attr"` `` — maps to the `language` *attribute*
+- `` `xml:"fileuri,attr"` `` — maps to the `fileuri` *attribute*
 
-`s[start:end]` gives a substring. Omitting `end` means "to the end of the
-string". The PHP equivalent is `substr($s, $idx + 1)`.
+In PHP: `simplexml_load_string($xml)->attributes()['language']`. Go's approach
+is more verbose but the mapping is explicit and checked at compile time.
+
+### The iso-8859-1 Gotcha
+
+Xdebug sends `<?xml version="1.0" encoding="iso-8859-1"?>`. Go's `encoding/xml`
+only accepts UTF-8. The content is ASCII-compatible, so the fix is a single
+substitution before parsing — that's the `bytes.ReplaceAll` line above. This is
+the kind of real-world protocol detail that no documentation warns you about.
+
+---
+
+## Error Handling — Multiple Return Values
+
+Sprint 1 introduced `if err != nil`. Sprint 2 shows it at scale. Go functions
+can return multiple values, and the convention is to return `(result, error)`:
+
+```go
+language, fileURI, err := dbgclient.ParseInit(data)
+if err != nil {
+    app.SetStatus("ddev-xdebug-tui | parse error: " + err.Error())
+    conn.Close()
+    return
+}
+```
+
+Each call that can fail gets its own `if err != nil` check immediately after.
+There's no try/catch block wrapping a whole section — errors are handled at
+the point they occur, explicitly. It's more verbose than PHP exceptions but
+makes the error paths visible in the code rather than hidden in a catch block
+elsewhere.
+
+The `%w` verb in `fmt.Errorf("failed to parse: %w", err)` wraps the original
+error inside the new one, like PHP's exception chaining
+(`new RuntimeException("context", 0, $previous)`).
+
+---
+
+## `strings.LastIndex` — Slicing Strings
+
+To get just `index.php` from `file:///var/www/html/index.php`, from `main.go`:
+
+```go
+filename := fileURI
+if idx := strings.LastIndex(fileURI, "/"); idx >= 0 {
+    filename = fileURI[idx+1:]
+}
+app.SetStatus(fmt.Sprintf("ddev-xdebug-tui | %s | %s", language, filename))
+```
+
+`strings.LastIndex` returns the position of the last `/`. Then `fileURI[idx+1:]`
+takes everything after it — Go's **slice notation**. `s[start:]` means "from
+`start` to the end of the string." PHP equivalent: `substr($s, $idx + 1)`.
+
+`fmt.Sprintf` works exactly like PHP's `sprintf` — same `%s` placeholders,
+same idea.
 
 ---
 
@@ -271,11 +347,11 @@ string". The PHP equivalent is `substr($s, $idx + 1)`.
 At the end of Sprint 2, visiting the PHP test site in a browser with Xdebug
 enabled causes the TUI to:
 
-1. Detect the incoming Xdebug connection on port 9003
+1. Accept the incoming Xdebug TCP connection on port 9003
 2. Update the status bar: `"ddev-xdebug-tui | Xdebug connected"`
-3. Read and frame the first DBGp message (the init packet)
-4. Parse the XML to extract language and file URI
-5. Display in the Source panel: `Language: PHP` / `File: file:///...`
+3. Read the first DBGp message using length-prefix framing
+4. Parse the `<init>` XML packet to extract language and file URI
+5. Update the Source panel: `Language: PHP` / `File: file:///var/www/html/index.php`
 6. Update the status bar: `"ddev-xdebug-tui | PHP | index.php"`
 
 Sprint 3 adds the ability to send DBGp commands back to Xdebug — enabling
