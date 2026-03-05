@@ -51,6 +51,7 @@ func NewApp() *App {
 	sourcePanel.SetDynamicColors(true)
 	sourcePanel.SetRegions(true)
 	sourcePanel.SetScrollable(true)
+	sourcePanel.SetWrap(false)
 
 	// Variables panel (bottom-left)
 	variablesPanel := tview.NewTextView()
