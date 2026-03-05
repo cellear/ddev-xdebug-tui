@@ -42,7 +42,7 @@ func NewApp() *App {
 
 	stackPanel := tview.NewTextView()
 	stackPanel.SetBorder(true)
-	stackPanel.SetTitle("Stack")
+	stackPanel.SetTitle("Stack [v0.4]")
 	stackPanel.SetText("")
 	stackPanel.SetDynamicColors(true)
 
