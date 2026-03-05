@@ -159,12 +159,15 @@ func (a *App) SetBreakpoints(text string) {
 	})
 }
 
-// SetSession stores the active debug session so the command input handler
-// can send commands to Xdebug. Safe to call from any goroutine.
+// SetSession stores the active debug session and immediately refreshes the
+// source panel to display the current paused location. Safe to call from any goroutine.
 func (a *App) SetSession(session *dbgclient.Session) {
 	a.mu.Lock()
 	a.session = session
 	a.mu.Unlock()
+	if session != nil {
+		a.refreshSource(session)
+	}
 }
 
 // getSession retrieves the stored debug session. Safe to call from any goroutine.

@@ -45,10 +45,10 @@ func main() {
 				return
 			}
 
-			// Store the session so the input handler can access it
+			// Store session — also triggers initial source panel refresh.
 			app.SetSession(session)
 
-			// Update status bar: "ddev-xdebug-tui | PHP | index.php | line 1"
+			// Update status bar: "ddev-xdebug-tui | PHP | index.php | line N"
 			filename := session.CurrentFile
 			if idx := strings.LastIndex(filename, "/"); idx >= 0 {
 				filename = filename[idx+1:]
@@ -56,11 +56,8 @@ func main() {
 			app.SetStatus(fmt.Sprintf("ddev-xdebug-tui | %s | %s | line %d",
 				language, filename, session.CurrentLine))
 
-			// Load and display source for the current paused location.
-			app.refreshSource(session)
-
-			// Keep connection open — session is ready for step commands (S3-3).
-			_ = fileURI // will be used in future stories
+			// Keep connection open — session is ready for step commands.
+			_ = fileURI
 		})
 		if err != nil {
 			app.SetStatus("ddev-xdebug-tui | listener error: " + err.Error())
