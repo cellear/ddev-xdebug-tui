@@ -3,6 +3,7 @@ package dbgclient
 import (
 	"bufio"
 	"bytes"
+	"encoding/base64"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -282,6 +283,7 @@ type contextGetResponse struct {
 type contextProperty struct {
 	Name        string `xml:"name,attr"`
 	Type        string `xml:"type,attr"`
+	Encoding    string `xml:"encoding,attr"` // "base64" when Xdebug encodes string values
 	ClassName   string `xml:"classname,attr"`
 	NumChildren int    `xml:"numchildren,attr"`
 	Value       string `xml:",chardata"`
@@ -313,7 +315,13 @@ func (s *Session) ContextGet() ([]Variable, error) {
 		case "null":
 			v.Value = "null"
 		default:
-			v.Value = strings.TrimSpace(p.Value)
+			raw := strings.TrimSpace(p.Value)
+			if p.Encoding == "base64" {
+				if decoded, err := base64.StdEncoding.DecodeString(raw); err == nil {
+					raw = string(decoded)
+				}
+			}
+			v.Value = raw
 		}
 		vars = append(vars, v)
 	}
