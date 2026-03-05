@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 930 810" width="930" height="810" font-family="monospace" font-size="14">
+  <!-- Window chrome -->
+  <rect x="0" y="0" width="930" height="810" rx="8" fill="#1a1a1a" stroke="#888" stroke-width="2"/>
+  <rect x="0" y="0" width="930" height="30" rx="8" fill="#3a3a3a"/>
+  <rect x="0" y="15" width="930" height="15" fill="#3a3a3a"/>
+  <circle cx="18" cy="15" r="6" fill="#ff5f57"/>
+  <circle cx="38" cy="15" r="6" fill="#febc2e"/>
+  <circle cx="58" cy="15" r="6" fill="#28c840"/>
+  <text x="465" y="19" fill="#ccc" text-anchor="middle" font-size="12">php-test-project — ddev-xdebug-tui ‹ ddev xdebug-tui — 110×35</text>
+
+  <!-- Tab bar -->
+  <rect x="0" y="30" width="930" height="24" fill="#2a2a2a"/>
+  <text x="270" y="46" fill="#ccc" text-anchor="middle" font-size="11">php-test-project — ddev-xdebug-tui ‹ ddev</text>
+  <text x="760" y="46" fill="#888" text-anchor="middle" font-size="11">php-test-project — -zsh</text>
+  <text x="920" y="46" fill="#888" font-size="11">+</text>
+
+  <!-- Status bar -->
+  <rect x="10" y="62" width="910" height="28" fill="#0000ee"/>
+  <text x="20" y="81" fill="#fff" font-weight="bold">ddev-xdebug-tui | PHP | index.php | line 19</text>
+
+  <!-- Stack panel -->
+  <rect x="10" y="100" width="280" height="320" fill="none" stroke="#666" stroke-width="1" stroke-dasharray="4,2"/>
+  <text x="150" y="115" fill="#999" text-anchor="middle" font-size="13">Stack [v0.4]</text>
+  <text x="25" y="138" fill="#ccc" font-size="13">► index.php:19</text>
+
+  <!-- Source panel -->
+  <rect x="300" y="100" width="620" height="320" fill="none" stroke="#666" stroke-width="1" stroke-dasharray="4,2"/>
+  <text x="610" y="115" fill="#999" text-anchor="middle" font-size="13">Source</text>
+
+  <!-- Line numbers -->
+  <g fill="#666" font-size="13">
+    <text x="340" y="138">9</text>
+    <text x="332" y="158">10</text>
+    <text x="332" y="178">11</text>
+    <text x="332" y="198">12</text>
+    <text x="332" y="218">13</text>
+    <text x="332" y="238">14</text>
+    <text x="332" y="258">15</text>
+    <text x="332" y="278">16</text>
+    <text x="332" y="298">17</text>
+    <text x="332" y="318">18</text>
+  </g>
+  <text x="332" y="338" fill="#ffff00" font-size="13">19</text>
+
+  <!-- Separator -->
+  <line x1="358" y1="125" x2="358" y2="415" stroke="#444" stroke-width="1"/>
+
+  <!-- Code text -->
+  <g fill="#ccc" font-size="13">
+    <text x="370" y="158">require_once __DIR__ . '/lib/math.php';</text>
+    <text x="370" y="178">require_once __DIR__ . '/lib/greeter.php';</text>
+    <text x="370" y="218">$name  = $_GET['name'] ?? 'world';</text>
+    <text x="370" y="238">$value = 42;</text>
+    <text x="370" y="278">$result  = add_numbers($value, 8);</text>
+    <text x="370" y="298">$message = greet($name, $result);</text>
+  </g>
+  <text x="370" y="338" fill="#ffff00" font-size="13">echo $message . PHP_EOL;</text>
+
+  <!-- Variables panel -->
+  <rect x="10" y="440" width="450" height="300" fill="none" stroke="#666" stroke-width="1" stroke-dasharray="4,2"/>
+  <text x="235" y="455" fill="#999" text-anchor="middle" font-size="13">Variables</text>
+  <g fill="#ccc" font-size="13">
+    <text x="25" y="478">$message = Hello, world! The answer is 50.</text>
+    <text x="25" y="498">$name = world</text>
+    <text x="25" y="518">$result = 50</text>
+    <text x="25" y="538">$value = 42</text>
+  </g>
+
+  <!-- Breakpoints panel -->
+  <rect x="470" y="440" width="450" height="300" fill="none" stroke="#666" stroke-width="1" stroke-dasharray="4,2"/>
+  <text x="695" y="455" fill="#999" text-anchor="middle" font-size="13">Breakpoints</text>
+  <g fill="#ccc" font-size="13">
+    <text x="485" y="478">index.php:14</text>
+    <text x="485" y="498">index.php:19</text>
+  </g>
+
+  <!-- Command bar -->
+  <rect x="10" y="755" width="910" height="28" fill="#2a2020" rx="2"/>
+  <text x="20" y="774" fill="#aaa" font-size="13">Command:</text>
+  <rect x="110" y="760" width="10" height="16" fill="#0f0"/>
+</svg>

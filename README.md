@@ -4,6 +4,8 @@ A small, terminal-native debugger for PHP projects running in **DDEV**.
 
 `ddev-xdebug-tui` lets you debug Drupal, Backdrop, and other PHP applications **without installing a full IDE**. It provides a simple terminal interface for stepping through code, inspecting variables, and managing breakpoints.
 
+![ddev-xdebug-tui screenshot](WIREFRAMES/ddev-xdebug-tui-screenshot.svg)
+
 This tool is intentionally minimal.
 
 It focuses on the debugging features developers use most often, while remaining small, readable, and easy to understand.
