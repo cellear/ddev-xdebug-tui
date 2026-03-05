@@ -83,7 +83,9 @@ func NewApp() *App {
 	// Command input at the bottom
 	commandInput := tview.NewInputField()
 	commandInput.SetLabel("Command: ")
-	commandInput.SetFieldBackgroundColor(tcell.ColorDefault)
+	commandInput.SetLabelColor(tcell.ColorWhite)
+	commandInput.SetFieldBackgroundColor(tcell.ColorBlack)
+	commandInput.SetFieldTextColor(tcell.ColorWhite)
 
 	// Add items to grid
 	grid.AddItem(statusBar, 0, 0, 1, 2, 0, 0, false)
