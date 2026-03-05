@@ -16,7 +16,7 @@ const containerRoot = "/var/www/html"
 //
 // Host project root is determined from environment variables:
 //   - XDEBUG_TUI_PROJECT_ROOT (if set, used directly)
-//   - Otherwise: $DDEV_APPROOT/testdata/php-test-project
+//   - Otherwise: $DDEV_APPROOT (the DDEV project root, set by DDEV for host commands)
 func MapPath(fileURI string) (string, error) {
 	// Strip file:// prefix
 	path := strings.TrimPrefix(fileURI, "file://")
@@ -28,7 +28,7 @@ func MapPath(fileURI string) (string, error) {
 		if ddevApproot == "" {
 			return "", fmt.Errorf("neither XDEBUG_TUI_PROJECT_ROOT nor DDEV_APPROOT is set")
 		}
-		hostRoot = ddevApproot + "/testdata/php-test-project"
+		hostRoot = ddevApproot
 	}
 
 	// Replace container root with host root
@@ -48,7 +48,7 @@ func ContainerPath(hostPath string) (string, error) {
 		if ddevApproot == "" {
 			return "", fmt.Errorf("neither XDEBUG_TUI_PROJECT_ROOT nor DDEV_APPROOT is set")
 		}
-		hostRoot = ddevApproot + "/testdata/php-test-project"
+		hostRoot = ddevApproot
 	}
 
 	if !strings.HasPrefix(hostPath, hostRoot) {
