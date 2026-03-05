@@ -11,11 +11,14 @@ set breakpoints.
 
 This sprint has two demo points:
 
-**Demo A — after S3-2:**
+**Demo A — after S3-2:** ✅ PASSED
 1. Run `ddev xdebug-tui`
 2. Visit `https://php-test-project.ddev.site` in browser
-3. TUI pauses at line 1 of `index.php` — status bar shows `"PHP | index.php | line 1"`
-4. Source panel shows the actual source of `index.php` with line 1 highlighted
+3. TUI pauses at first executable line of `index.php` — status bar shows `"PHP | index.php | line 10"`
+   (lines 1–9 are the PHP open tag and a comment block; Xdebug correctly skips to first executable statement)
+4. Source panel shows the actual source of `index.php` with line 10 highlighted in black-on-yellow
+
+![Demo A wireframe](../../WIREFRAMES/ddev-xdebug-tui-wireframe-S3-2.svg)
 
 **Demo B — after S3-4:**
 1. Same as above, but type `b index.php:6` before visiting the site
@@ -30,7 +33,7 @@ This sprint has two demo points:
 ---
 
 ### S3-1: Session Struct + Break on Entry
-**Status:** [pending]
+**Status:** [done]
 **Owner:** claude-haiku-4-5
 
 **Prerequisites:** Sprint 2 complete (S2-4 done, Demo B passed).
@@ -83,7 +86,7 @@ step_into -i 1\0
 ---
 
 ### S3-2: Source Panel + Path Mapping
-**Status:** [pending]
+**Status:** [done]
 **Owner:** claude-sonnet-4-6
 
 **Prerequisites:** S3-1 done and compiling.
@@ -97,10 +100,11 @@ Source panel. This requires mapping the container path Xdebug reports
 **Path mapping rules:**
 - Strip the `file://` prefix from the URI
 - Replace the container root `/var/www/html` with the host project root
-- The host project root is the value of the `DDEV_APPROOT` environment variable
-  plus `/testdata/php-test-project` (since our test project lives there)
+- The host project root is `DDEV_APPROOT` directly — DDEV sets this to the project
+  root (i.e. the directory containing `.ddev/`), which is already the PHP project root.
+  Do NOT append a subdirectory suffix.
 - For robustness, also accept a configurable override via a `XDEBUG_TUI_PROJECT_ROOT`
-  env var, which if set is used directly instead of `$DDEV_APPROOT/testdata/php-test-project`
+  env var, which if set is used directly instead of `$DDEV_APPROOT`
 
 **Source display:**
 - Read the mapped file from disk
@@ -122,8 +126,9 @@ Source panel. This requires mapping the container path Xdebug reports
 - `go build ./...` succeeds
 
 **Notes:**
-- tview `TextView` colour tags: wrap text in `[::r]text[::-]` for reverse video
-  highlight. Set `SetDynamicColors(true)` on the TextView.
+- tview `TextView` colour tags: use `[black:yellow]text[-:-:-]` for current line
+  highlight (reverse video `[::r]` is invisible on dark terminals). Set
+  `SetDynamicColors(true)` and `SetRegions(true)` on the TextView.
 - The `DDEV_APPROOT` env var is set by DDEV when a host command runs —
   it points to the project root on the host machine.
 - Do not load the file on every keypress — only reload when `CurrentFile` changes.
