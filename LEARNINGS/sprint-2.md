@@ -358,5 +358,3 @@ Sprint 3 adds the ability to send DBGp commands back to Xdebug — enabling
 stepping, breakpoints, and variable inspection.
 
 ![Sprint 2 final state](../WIREFRAMES/ddev-xdebug-tui-wireframe-s2-4.svg)
-
-![Sprint 2 demo screenshot](../SCREENSHOTS/s2-4-demo.jpeg)
