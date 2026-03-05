@@ -88,8 +88,9 @@ func Format(hostPath string, currentLine int) (string, error) {
 
 		if lineNum == currentLine {
 			// Wrap in a named region for Highlight() + ScrollToHighlight().
-			// [::r] = reverse video (highlight), [::-] = reset style.
-			fmt.Fprintf(&sb, "[\"%d\"][::r]%4d \u2502 %s[::-][\"\"]\n", lineNum, lineNum, escaped)
+			// [black:yellow] = black text on yellow background (current line marker).
+			// [-:-:-] resets all colour/style attributes.
+			fmt.Fprintf(&sb, "[\"%d\"][black:yellow]%4d \u2502 %s[-:-:-][\"\"]\n", lineNum, lineNum, escaped)
 		} else {
 			fmt.Fprintf(&sb, "%4d \u2502 %s\n", lineNum, escaped)
 		}
