@@ -2,9 +2,11 @@ package tui
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 
+	"github.com/cellear/ddev-xdebug-tui/internal/breakpoints"
 	"github.com/cellear/ddev-xdebug-tui/internal/dbgclient"
 	"github.com/cellear/ddev-xdebug-tui/internal/source"
 	"github.com/gdamore/tcell/v2"
@@ -19,6 +21,7 @@ type App struct {
 	breakpointsPanel *tview.TextView
 	mu               sync.Mutex
 	session          *dbgclient.Session
+	bpStore          breakpoints.Store
 }
 
 // NewApp creates and returns a new TUI application with the full split-pane layout.
@@ -188,6 +191,19 @@ func (a *App) getSession() *dbgclient.Session {
 	return a.session
 }
 
+// parseFileAndLine parses "filename.php:N" into filename and line number.
+func parseFileAndLine(arg string) (file string, line int, err error) {
+	parts := strings.SplitN(arg, ":", 2)
+	if len(parts) != 2 {
+		return "", 0, fmt.Errorf("expected file:line, got %q", arg)
+	}
+	n, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return "", 0, fmt.Errorf("invalid line number %q", parts[1])
+	}
+	return parts[0], n, nil
+}
+
 // handleCommand processes a command string entered by the user.
 // Must be called in a goroutine (may block on network I/O).
 func (a *App) handleCommand(cmd string) {
@@ -200,15 +216,53 @@ func (a *App) handleCommand(cmd string) {
 	var status string
 	var err error
 
-	switch cmd {
-	case "s":
+	switch {
+	case cmd == "s":
 		status, err = session.StepInto()
-	case "n":
+	case cmd == "n":
 		status, err = session.StepOver()
-	case "o":
+	case cmd == "o":
 		status, err = session.StepOut()
-	case "r":
+	case cmd == "r":
 		status, err = session.Run()
+	case strings.HasPrefix(cmd, "b "):
+		// Set breakpoint: "b index.php:6"
+		file, line, err := parseFileAndLine(strings.TrimPrefix(cmd, "b "))
+		if err != nil {
+			a.SetStatus("ddev-xdebug-tui | " + err.Error())
+			return
+		}
+		// Map host filename to container URI for Xdebug
+		// file is a bare filename like "index.php"; build a container URI
+		containerURI := "file:///var/www/html/" + file
+		id, err := session.SetBreakpoint(containerURI, line)
+		if err != nil {
+			a.SetStatus(fmt.Sprintf("ddev-xdebug-tui | breakpoint error: %s", err.Error()))
+			return
+		}
+		a.bpStore.Add(file, line, id)
+		a.SetBreakpoints(a.bpStore.Format())
+		a.SetStatus(fmt.Sprintf("ddev-xdebug-tui | breakpoint set: %s:%d", file, line))
+		return
+	case strings.HasPrefix(cmd, "rb "):
+		// Remove breakpoint: "rb index.php:6"
+		file, line, err := parseFileAndLine(strings.TrimPrefix(cmd, "rb "))
+		if err != nil {
+			a.SetStatus("ddev-xdebug-tui | " + err.Error())
+			return
+		}
+		id, err := a.bpStore.Remove(file, line)
+		if err != nil {
+			a.SetStatus(fmt.Sprintf("ddev-xdebug-tui | %s", err.Error()))
+			return
+		}
+		if err := session.RemoveBreakpoint(id); err != nil {
+			a.SetStatus(fmt.Sprintf("ddev-xdebug-tui | remove error: %s", err.Error()))
+			return
+		}
+		a.SetBreakpoints(a.bpStore.Format())
+		a.SetStatus(fmt.Sprintf("ddev-xdebug-tui | breakpoint removed: %s:%d", file, line))
+		return
 	default:
 		a.SetStatus(fmt.Sprintf("ddev-xdebug-tui | unknown command: %s", cmd))
 		return

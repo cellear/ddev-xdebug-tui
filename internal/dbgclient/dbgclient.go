@@ -217,6 +217,12 @@ type stepMessage struct {
 	Lineno   int    `xml:"lineno,attr"`
 }
 
+// breakpointSetResponse represents the XML response to breakpoint_set command.
+type breakpointSetResponse struct {
+	XMLName xml.Name `xml:"response"`
+	ID      string   `xml:"id,attr"`
+}
+
 // sendStep sends a step command and reads+parses the response.
 // Updates s.CurrentFile and s.CurrentLine on success.
 // Returns the response status ("break", "stopping", "stopped") and any error.
@@ -258,4 +264,38 @@ func (s *Session) StepOut() (status string, err error) {
 // Run sends run and updates session state.
 func (s *Session) Run() (status string, err error) {
 	return s.sendStep("run")
+}
+
+// SetBreakpoint sends breakpoint_set for a line breakpoint.
+// fileURI must be a container-side URI, e.g. "file:///var/www/html/index.php"
+// Returns the Xdebug-assigned breakpoint ID, or an error.
+func (s *Session) SetBreakpoint(fileURI string, line int) (id string, err error) {
+	cmd := fmt.Sprintf("breakpoint_set -t line -f %s -n %d", fileURI, line)
+	if err := s.SendCommand(cmd); err != nil {
+		return "", fmt.Errorf("send breakpoint_set: %w", err)
+	}
+	data, err := s.ReadMessage()
+	if err != nil {
+		return "", fmt.Errorf("read breakpoint_set response: %w", err)
+	}
+	data = bytes.ReplaceAll(data, []byte(`encoding="iso-8859-1"`), []byte(`encoding="UTF-8"`))
+	var resp breakpointSetResponse
+	if err := xml.Unmarshal(data, &resp); err != nil {
+		return "", fmt.Errorf("parse breakpoint_set response: %w", err)
+	}
+	if resp.ID == "" {
+		return "", fmt.Errorf("breakpoint_set response missing id attribute")
+	}
+	return resp.ID, nil
+}
+
+// RemoveBreakpoint sends breakpoint_remove for the given Xdebug breakpoint ID.
+func (s *Session) RemoveBreakpoint(id string) error {
+	cmd := fmt.Sprintf("breakpoint_remove -d %s", id)
+	if err := s.SendCommand(cmd); err != nil {
+		return fmt.Errorf("send breakpoint_remove: %w", err)
+	}
+	// Read and discard the response
+	_, err := s.ReadMessage()
+	return err
 }
