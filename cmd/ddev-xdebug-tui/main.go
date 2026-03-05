@@ -18,8 +18,12 @@ func main() {
 		err := dbgclient.Listen(func(conn net.Conn) {
 			app.SetStatus("ddev-xdebug-tui | Xdebug connected")
 
+			// Create a session wrapping the connection
+			session := dbgclient.NewSession(conn)
+
 			// Read the init packet Xdebug sends immediately on connect.
-			data, err := dbgclient.ReadMessage(conn)
+			// Use session.ReadMessage() to use the persistent bufio.Reader
+			data, err := session.ReadMessage()
 			if err != nil {
 				app.SetStatus("ddev-xdebug-tui | read error: " + err.Error())
 				conn.Close()
@@ -35,13 +39,21 @@ func main() {
 
 			app.SetInitInfo(language, fileURI)
 
-			// Update status bar: "ddev-xdebug-tui | PHP | index.php"
-			// Extract just the filename from the full URI path
-			filename := fileURI
-			if idx := strings.LastIndex(fileURI, "/"); idx >= 0 {
-				filename = fileURI[idx+1:]
+			// Send step_into to pause at the first line (break on entry)
+			status, err := session.StepInto()
+			if err != nil {
+				app.SetStatus("ddev-xdebug-tui | step error: " + err.Error())
+				conn.Close()
+				return
 			}
-			app.SetStatus(fmt.Sprintf("ddev-xdebug-tui | %s | %s", language, filename))
+
+			// Update status bar with file, line, and status
+			filename := session.CurrentFile
+			if idx := strings.LastIndex(filename, "/"); idx >= 0 {
+				filename = filename[idx+1:]
+			}
+			app.SetStatus(fmt.Sprintf("ddev-xdebug-tui | %s | %s | line %d (status: %s)",
+				language, filename, session.CurrentLine, status))
 		})
 		if err != nil {
 			app.SetStatus("ddev-xdebug-tui | listener error: " + err.Error())
