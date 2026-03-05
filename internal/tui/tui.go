@@ -9,77 +9,81 @@ import (
 
 // App represents the TUI application.
 type App struct {
-	app         *tview.Application
-	statusBar   *tview.TextView
-	sourcePanel *tview.TextView
+	app              *tview.Application
+	statusBar        *tview.TextView
+	sourcePanel      *tview.TextView
+	breakpointsPanel *tview.TextView
 }
 
 // NewApp creates and returns a new TUI application with the full split-pane layout.
 func NewApp() *App {
 	app := tview.NewApplication()
-	
+
 	// Create the main grid container
 	grid := tview.NewGrid()
-	grid.SetRows(1, 0, 0, 1)           // status bar, stack+source, variables+breakpoints, command input
-	grid.SetColumns(25, 0)              // left panel (stack), right panel (source)
+	grid.SetRows(1, 0, 0, 1)  // status bar, stack+source, variables+breakpoints, command input
+	grid.SetColumns(25, 0)     // left panel (stack), right panel (source)
 	grid.SetBorders(true)
-	
+
 	// Status bar at the top
 	statusBar := tview.NewTextView()
 	statusBar.SetText("ddev-xdebug-tui | waiting for Xdebug connection")
 	statusBar.SetBackgroundColor(tcell.ColorBlue)
 	statusBar.SetTextColor(tcell.ColorWhite)
-	
+
 	// Stack panel (top-left)
 	stackPanel := tview.NewTextView()
 	stackPanel.SetBorder(true)
 	stackPanel.SetTitle("Stack")
 	stackPanel.SetText("")
-	
-	// Source panel (top-right)
+
+	// Source panel (top-right): dynamic colors and regions for line highlighting.
 	sourcePanel := tview.NewTextView()
 	sourcePanel.SetBorder(true)
 	sourcePanel.SetTitle("Source")
 	sourcePanel.SetText("")
-	
+	sourcePanel.SetDynamicColors(true)
+	sourcePanel.SetRegions(true)
+	sourcePanel.SetScrollable(true)
+
 	// Variables panel (bottom-left)
 	variablesPanel := tview.NewTextView()
 	variablesPanel.SetBorder(true)
 	variablesPanel.SetTitle("Variables")
 	variablesPanel.SetText("")
-	
+
 	// Breakpoints panel (bottom-right)
 	breakpointsPanel := tview.NewTextView()
 	breakpointsPanel.SetBorder(true)
 	breakpointsPanel.SetTitle("Breakpoints")
 	breakpointsPanel.SetText("")
-	
+
 	// Top row: Stack | Source
 	topRow := tview.NewFlex()
 	topRow.SetDirection(tview.FlexColumn)
 	topRow.AddItem(stackPanel, 0, 1, false)
 	topRow.AddItem(sourcePanel, 0, 3, false)
-	
+
 	// Bottom row: Variables | Breakpoints
 	bottomRow := tview.NewFlex()
 	bottomRow.SetDirection(tview.FlexColumn)
 	bottomRow.AddItem(variablesPanel, 0, 1, false)
 	bottomRow.AddItem(breakpointsPanel, 0, 1, false)
-	
+
 	// Command input at the bottom
 	commandInput := tview.NewInputField()
 	commandInput.SetLabel("Command: ")
 	commandInput.SetFieldBackgroundColor(tcell.ColorDefault)
-	
+
 	// Add items to grid
 	grid.AddItem(statusBar, 0, 0, 1, 2, 0, 0, false)
 	grid.AddItem(topRow, 1, 0, 1, 2, 0, 0, false)
 	grid.AddItem(bottomRow, 2, 0, 1, 2, 0, 0, false)
 	grid.AddItem(commandInput, 3, 0, 1, 2, 0, 0, true)
-	
+
 	// Set root and configure app
 	app.SetRoot(grid, true)
-	
+
 	// Handle key bindings
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Rune() == 'q' {
@@ -88,16 +92,16 @@ func NewApp() *App {
 		}
 		return event
 	})
-	
+
 	return &App{
-		app:         app,
-		statusBar:   statusBar,
-		sourcePanel: sourcePanel,
+		app:              app,
+		statusBar:        statusBar,
+		sourcePanel:      sourcePanel,
+		breakpointsPanel: breakpointsPanel,
 	}
 }
 
 // SetStatus updates the status bar text. Safe to call from any goroutine.
-// Uses QueueUpdateDraw to avoid race conditions when called from background threads.
 func (a *App) SetStatus(text string) {
 	a.app.QueueUpdateDraw(func() {
 		a.statusBar.SetText(text)
@@ -109,6 +113,27 @@ func (a *App) SetStatus(text string) {
 func (a *App) SetInitInfo(language, fileURI string) {
 	a.app.QueueUpdateDraw(func() {
 		a.sourcePanel.SetText(fmt.Sprintf("Language: %s\nFile:     %s", language, fileURI))
+	})
+}
+
+// SetSource displays formatted source content in the Source panel and highlights
+// the current line. content should be produced by source.Format().
+// Safe to call from any goroutine.
+func (a *App) SetSource(content string, currentLine int) {
+	a.app.QueueUpdateDraw(func() {
+		a.sourcePanel.SetText(content)
+		if currentLine > 0 {
+			a.sourcePanel.Highlight(fmt.Sprintf("%d", currentLine))
+			a.sourcePanel.ScrollToHighlight()
+		}
+	})
+}
+
+// SetBreakpoints updates the Breakpoints panel with the given text.
+// Safe to call from any goroutine.
+func (a *App) SetBreakpoints(text string) {
+	a.app.QueueUpdateDraw(func() {
+		a.breakpointsPanel.SetText(text)
 	})
 }
 
