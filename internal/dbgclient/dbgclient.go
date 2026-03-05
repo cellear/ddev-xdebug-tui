@@ -244,3 +244,18 @@ func (s *Session) sendStep(cmd string) (status string, err error) {
 func (s *Session) StepInto() (status string, err error) {
 	return s.sendStep("step_into")
 }
+
+// StepOver sends step_over and updates session state.
+func (s *Session) StepOver() (status string, err error) {
+	return s.sendStep("step_over")
+}
+
+// StepOut sends step_out and updates session state.
+func (s *Session) StepOut() (status string, err error) {
+	return s.sendStep("step_out")
+}
+
+// Run sends run and updates session state.
+func (s *Session) Run() (status string, err error) {
+	return s.sendStep("run")
+}

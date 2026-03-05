@@ -2,7 +2,11 @@ package tui
 
 import (
 	"fmt"
+	"strings"
+	"sync"
 
+	"github.com/cellear/ddev-xdebug-tui/internal/dbgclient"
+	"github.com/cellear/ddev-xdebug-tui/internal/source"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -13,6 +17,8 @@ type App struct {
 	statusBar        *tview.TextView
 	sourcePanel      *tview.TextView
 	breakpointsPanel *tview.TextView
+	mu               sync.Mutex
+	session          *dbgclient.Session
 }
 
 // NewApp creates and returns a new TUI application with the full split-pane layout.
@@ -93,12 +99,28 @@ func NewApp() *App {
 		return event
 	})
 
-	return &App{
+	// Build the App struct first
+	tuiApp := &App{
 		app:              app,
 		statusBar:        statusBar,
 		sourcePanel:      sourcePanel,
 		breakpointsPanel: breakpointsPanel,
 	}
+
+	// Now wire the input handler (tuiApp is available in the closure)
+	commandInput.SetDoneFunc(func(key tcell.Key) {
+		if key != tcell.KeyEnter {
+			return
+		}
+		cmd := strings.TrimSpace(commandInput.GetText())
+		commandInput.SetText("") // clear after submit
+		if cmd == "" {
+			return
+		}
+		go tuiApp.handleCommand(cmd)
+	})
+
+	return tuiApp
 }
 
 // SetStatus updates the status bar text. Safe to call from any goroutine.
@@ -135,6 +157,84 @@ func (a *App) SetBreakpoints(text string) {
 	a.app.QueueUpdateDraw(func() {
 		a.breakpointsPanel.SetText(text)
 	})
+}
+
+// SetSession stores the active debug session so the command input handler
+// can send commands to Xdebug. Safe to call from any goroutine.
+func (a *App) SetSession(session *dbgclient.Session) {
+	a.mu.Lock()
+	a.session = session
+	a.mu.Unlock()
+}
+
+// getSession retrieves the stored debug session. Safe to call from any goroutine.
+func (a *App) getSession() *dbgclient.Session {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.session
+}
+
+// handleCommand processes a command string entered by the user.
+// Must be called in a goroutine (may block on network I/O).
+func (a *App) handleCommand(cmd string) {
+	session := a.getSession()
+	if session == nil {
+		a.SetStatus("ddev-xdebug-tui | not connected")
+		return
+	}
+
+	var status string
+	var err error
+
+	switch cmd {
+	case "s":
+		status, err = session.StepInto()
+	case "n":
+		status, err = session.StepOver()
+	case "o":
+		status, err = session.StepOut()
+	case "r":
+		status, err = session.Run()
+	default:
+		a.SetStatus(fmt.Sprintf("ddev-xdebug-tui | unknown command: %s", cmd))
+		return
+	}
+
+	if err != nil {
+		a.SetStatus(fmt.Sprintf("ddev-xdebug-tui | error: %s", err.Error()))
+		return
+	}
+
+	if status == "stopping" || status == "stopped" {
+		a.SetStatus("ddev-xdebug-tui | session ended")
+		return
+	}
+
+	// Update status bar with new position
+	filename := session.CurrentFile
+	if idx := strings.LastIndex(filename, "/"); idx >= 0 {
+		filename = filename[idx+1:]
+	}
+	a.SetStatus(fmt.Sprintf("ddev-xdebug-tui | PHP | %s | line %d", filename, session.CurrentLine))
+
+	// Refresh source panel
+	a.refreshSource(session)
+}
+
+// refreshSource maps the session's current container path to a host path,
+// loads the source file, and updates the Source panel.
+func (a *App) refreshSource(session *dbgclient.Session) {
+	hostPath, err := source.MapPath(session.CurrentFile)
+	if err != nil {
+		a.SetSource(fmt.Sprintf("source not found: %s", err.Error()), 0)
+		return
+	}
+	content, err := source.Format(hostPath, session.CurrentLine)
+	if err != nil {
+		a.SetSource(fmt.Sprintf("source error: %s", err.Error()), 0)
+		return
+	}
+	a.SetSource(content, session.CurrentLine)
 }
 
 // Run starts the application event loop.

@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/cellear/ddev-xdebug-tui/internal/dbgclient"
-	"github.com/cellear/ddev-xdebug-tui/internal/source"
 	"github.com/cellear/ddev-xdebug-tui/internal/tui"
 )
 
@@ -46,6 +45,9 @@ func main() {
 				return
 			}
 
+			// Store the session so the input handler can access it
+			app.SetSession(session)
+
 			// Update status bar: "ddev-xdebug-tui | PHP | index.php | line 1"
 			filename := session.CurrentFile
 			if idx := strings.LastIndex(filename, "/"); idx >= 0 {
@@ -55,7 +57,7 @@ func main() {
 				language, filename, session.CurrentLine))
 
 			// Load and display source for the current paused location.
-			refreshSource(app, session)
+			app.refreshSource(session)
 
 			// Keep connection open — session is ready for step commands (S3-3).
 			_ = fileURI // will be used in future stories
@@ -68,22 +70,4 @@ func main() {
 	if err := app.Run(); err != nil {
 		panic(err)
 	}
-}
-
-// refreshSource maps the session's current container path to a host path,
-// loads the source file, and updates the Source panel.
-func refreshSource(app *tui.App, session *dbgclient.Session) {
-	hostPath, err := source.MapPath(session.CurrentFile)
-	if err != nil {
-		app.SetSource(fmt.Sprintf("source not found: %s", err.Error()), 0)
-		return
-	}
-
-	content, err := source.Format(hostPath, session.CurrentLine)
-	if err != nil {
-		app.SetSource(fmt.Sprintf("source error: %s", err.Error()), 0)
-		return
-	}
-
-	app.SetSource(content, session.CurrentLine)
 }
