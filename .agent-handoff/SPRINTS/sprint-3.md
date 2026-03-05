@@ -20,11 +20,14 @@ This sprint has two demo points:
 
 ![Demo A wireframe](../../WIREFRAMES/ddev-xdebug-tui-wireframe-S3-2.svg)
 
-**Demo B — after S3-4:**
-1. Same as above, but type `b index.php:6` before visiting the site
-2. Type `r` to run — PHP executes until the breakpoint
-3. Source panel jumps to the breakpoint line, highlighted
-4. Breakpoints panel lists the active breakpoint
+**Demo B — after S3-4:** ✅ PASSED
+1. `ddev xdebug-tui` launches (Xdebug auto-enabled)
+2. Type `b index.php:16` — Breakpoints panel shows `index.php:16`
+3. Visit `https://php-test-project.ddev.site` — TUI pauses at line 10 (break on entry)
+4. Type `r` — PHP runs to the breakpoint; source jumps to line 16, highlighted
+5. Shorthand `b 17` also works (infers filename from current file)
+
+![Demo B wireframe](../../WIREFRAMES/ddev-xdebug-tui-wireframe-s3-4.svg)
 
 ---
 
@@ -138,7 +141,7 @@ Source panel. This requires mapping the container path Xdebug reports
 ---
 
 ### S3-3: Step Commands
-**Status:** [pending]
+**Status:** [done]
 **Owner:** claude-haiku-4-5
 
 **Prerequisites:** S3-2 done and Demo A passed.
@@ -180,7 +183,7 @@ update `CurrentFile`/`CurrentLine` on the session, and refresh the Source panel.
 ---
 
 ### S3-4: Breakpoints
-**Status:** [pending]
+**Status:** [done]
 **Owner:** claude-haiku-4-5
 
 **Prerequisites:** S3-3 done and compiling.
