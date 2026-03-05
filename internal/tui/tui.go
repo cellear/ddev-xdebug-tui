@@ -228,8 +228,17 @@ func (a *App) handleCommand(cmd string) {
 	case cmd == "r":
 		status, err = session.Run()
 	case strings.HasPrefix(cmd, "b "):
-		// Set breakpoint: "b index.php:6"
-		file, line, err := parseFileAndLine(strings.TrimPrefix(cmd, "b "))
+		// Set breakpoint: "b index.php:6" or shorthand "b 6" (uses current file)
+		arg := strings.TrimPrefix(cmd, "b ")
+		if _, numErr := strconv.Atoi(arg); numErr == nil {
+			// Bare line number — infer filename from the current paused location
+			currentFile := session.CurrentFile
+			if idx := strings.LastIndex(currentFile, "/"); idx >= 0 {
+				currentFile = currentFile[idx+1:]
+			}
+			arg = currentFile + ":" + arg
+		}
+		file, line, err := parseFileAndLine(arg)
 		if err != nil {
 			a.SetStatus("ddev-xdebug-tui | " + err.Error())
 			return
