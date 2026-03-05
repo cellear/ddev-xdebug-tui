@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+## Description: Launch the ddev-xdebug-tui terminal debugger
+## Usage: debug
+exec ddev-xdebug-tui

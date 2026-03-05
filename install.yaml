@@ -1,0 +1,3 @@
+name: ddev-xdebug-tui
+project_files:
+  - .ddev/commands/host/debug

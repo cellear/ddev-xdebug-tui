@@ -9,7 +9,7 @@
 ---
 
 ### S1-1: Set Up PHP Test Project with DDEV
-**Status:** [backlog]
+**Status:** [done]
 **Owner:** Human
 
 **Description:**
@@ -29,7 +29,7 @@ Keep the PHP source simple. A 2-3 file app with a function call chain gives enou
 ---
 
 ### S1-2: Initialize Go Repository Scaffold
-**Status:** [backlog]
+**Status:** [done]
 **Owner:** Human or Haiku
 
 **Description:**
@@ -50,7 +50,7 @@ Create the Go module and directory structure as defined in REPO_BOOTSTRAP.md. Th
 ---
 
 ### S1-3: Minimal Runnable TUI Shell
-**Status:** [backlog]
+**Status:** [done]
 **Owner:** Haiku
 
 **Description:**
@@ -69,7 +69,7 @@ Scaffold the full panel layout now rather than a placeholder box. This avoids a 
 ---
 
 ### S1-4: DDEV Add-on Stub
-**Status:** [backlog]
+**Status:** [done]
 **Owner:** Human or Haiku
 
 **Description:**
@@ -119,4 +119,4 @@ At the sprint review, the stakeholder should be able to observe:
 
 ---
 
-Last updated: 2026-03-05 by Claude
+Last updated: 2026-03-05 by Claude Haiku
