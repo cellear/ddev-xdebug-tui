@@ -118,7 +118,14 @@ ddev xdebug-tui
 > q             (quit)
 ```
 
-**Demo status: [ ] PENDING**
+**Demo status: ✅ PASSED**
+
+Observed in screenshot 2026-03-05:
+- Stack [v0.4] confirmed new binary
+- Variables: `$message = Hello, world! The answer is 50.` (base64 decoded ✅), `$name = world`, `$result = 50`, `$value = 42`
+- Stack panel: `► index.php:19`
+- Session restart: status bar "Script finished — waiting for next connection…", panels preserved ✅
+- Breakpoints panel: `index.php:14`, `index.php:19`
 
 ---
 
