@@ -2,7 +2,7 @@
 
 A small, terminal-native debugger for PHP projects running in **DDEV**.
 
-`ddev-xdebug-tui` lets you debug Drupal, Backdrop, and other PHP applications **without installing a full IDE**. It provides a simple terminal interface for stepping through code, inspecting variables, and managing breakpoints.
+`ddev-xdebug-tui` lets you debug Drupal, Backdrop, WordPress, and other PHP applications **without installing a full IDE**. It provides a simple terminal interface for stepping through code, inspecting variables, and managing breakpoints.
 
 ![ddev-xdebug-tui screenshot](WIREFRAMES/ddev-xdebug-tui-screenshot.svg)
 
@@ -50,43 +50,49 @@ Breakpoints are **ephemeral per run**.
 
 # Installation
 
-Install as a DDEV add-on:
+**Step 1 — Install the binary** (requires Go):
 
 ```
-ddev get <repo>
+git clone https://github.com/cellear/ddev-xdebug-tui.git
+cd ddev-xdebug-tui
+make install
 ```
 
-This installs the `ddev debug` command.
+This builds and copies `ddev-xdebug-tui` to `~/go/bin/`. Ensure `~/go/bin` is in your `PATH`.
+
+**Step 2 — Install the DDEV add-on** (from your DDEV project directory):
+
+```
+ddev add-on get cellear/ddev-xdebug-tui
+```
+
+This installs the `ddev xdebug-tui` command.
 
 ---
 
 # Usage
 
-Enable Xdebug:
+From your DDEV project directory:
 
 ```
-ddev xdebug on
+ddev xdebug-tui
 ```
 
-Start the debugger:
+Xdebug is enabled automatically on start and disabled when you quit.
 
-```
-ddev debug
-```
+Then trigger a request in your browser or with `curl`.
 
-Then trigger a request in your browser.
-
-When execution hits a breakpoint, the debugger UI will appear.
+The debugger will pause at your first breakpoint (or at the first executable line on entry).
 
 ---
 
 # Commands
 
 ```
+s  step into
 n  step over
-s  step in
 o  step out
-c  continue
+r  run (continue to next breakpoint or end)
 q  quit
 ```
 
