@@ -135,6 +135,19 @@ The current goal is a stable terminal debugger for basic stepping and variable i
 
 ---
 
+# How This Was Built
+
+This project was built almost entirely by AI agents working under human direction,
+across multiple sessions and models. The development used a structured **handoff
+protocol** (see `.agent-handoff/`) to maintain continuity across context windows,
+a semi-scrum sprint structure with explicit demo checkpoints, and deliberate model
+tiering — reserving more capable models for architecture and protocol work, faster
+models for mechanical implementation. Each sprint produced a `LEARNINGS/` document
+aimed at PHP developers encountering Go concepts for the first time. The full
+account is in [DEVELOPMENT_PROCESS.md](DEVELOPMENT_PROCESS.md).
+
+---
+
 # Contributing
 
 Contributions are welcome, but please keep the project philosophy in mind:
