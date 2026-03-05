@@ -2,4 +2,13 @@
 #ddev-generated
 ## Description: Launch the ddev-xdebug-tui terminal debugger
 ## Usage: xdebug-tui
-exec ddev-xdebug-tui
+
+# Ensure Xdebug is enabled before launching (idempotent if already on).
+ddev xdebug on
+
+# Run the debugger. Not exec so the trap below can fire on exit.
+ddev-xdebug-tui
+
+# Turn Xdebug back off when the debugger exits so it doesn't slow
+# down normal requests after the session ends.
+ddev xdebug off
