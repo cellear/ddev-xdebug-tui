@@ -1,0 +1,14 @@
+# macOS
+.DS_Store
+
+# Go build output
+ddev-xdebug-tui
+*.exe
+
+# Go module cache
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
