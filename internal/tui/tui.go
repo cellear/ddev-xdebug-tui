@@ -7,7 +7,8 @@ import (
 
 // App represents the TUI application.
 type App struct {
-	app *tview.Application
+	app       *tview.Application
+	statusBar *tview.TextView
 }
 
 // NewApp creates and returns a new TUI application with the full split-pane layout.
@@ -85,7 +86,18 @@ func NewApp() *App {
 		return event
 	})
 	
-	return &App{app: app}
+	return &App{
+		app:       app,
+		statusBar: statusBar,
+	}
+}
+
+// SetStatus updates the status bar text. Safe to call from any goroutine.
+// Uses QueueUpdateDraw to avoid race conditions when called from background threads.
+func (a *App) SetStatus(text string) {
+	a.app.QueueUpdateDraw(func() {
+		a.statusBar.SetText(text)
+	})
 }
 
 // Run starts the application event loop.

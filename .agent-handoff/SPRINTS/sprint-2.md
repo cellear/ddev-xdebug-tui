@@ -27,7 +27,7 @@ This sprint has two demo points:
 ---
 
 ### S2-1: TCP Listener
-**Status:** [backlog]
+**Status:** [done]
 **Owner:** claude-haiku-4-5
 
 **Description:**
@@ -50,7 +50,7 @@ purely the network layer.
 ---
 
 ### S2-2: Wire Connection Status to TUI
-**Status:** [backlog]
+**Status:** [done]
 **Owner:** claude-haiku-4-5
 
 **Prerequisites:** S2-1 done and compiling.
@@ -183,4 +183,4 @@ TCP connect → frame read → XML parse → UI update.
 
 ---
 
-Last updated: 2026-03-05 by claude-sonnet-4-6
+Last updated: 2026-03-05 by claude-haiku-4-5
