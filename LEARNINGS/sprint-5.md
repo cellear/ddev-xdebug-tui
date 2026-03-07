@@ -29,11 +29,24 @@ binary with no runtime requirement.
 
 ---
 
-## 2. GitHub Releases as a binary distribution channel
+## 2. GitHub Releases: two things with the same name
 
-GitHub Releases are versioned snapshots of a repository, optionally with
-attached binary files called "assets." The download URL follows a predictable
-pattern:
+It's easy to confuse "a GitHub Release" with "the git repository." They are
+completely separate:
+
+**The git repository** is what you've been working with all along — commits,
+branches, files, history. Binaries are gitignored and never go here.
+
+**A GitHub Release** is a separate storage area attached to a version tag. It
+has its own page (`github.com/{owner}/{repo}/releases`) and can hold binary
+file "assets" — files that are uploaded to GitHub but are NOT part of the git
+history at all. Think of it like an email attachment: the email (git repo) and
+the attachment (binary) travel together but are stored differently.
+
+When users download software from a GitHub Release, they are downloading those
+attached assets — not cloning the repository.
+
+The download URL follows a predictable pattern:
 
 ```
 https://github.com/{owner}/{repo}/releases/download/{tag}/{filename}
@@ -41,12 +54,79 @@ https://github.com/{owner}/{repo}/releases/latest/download/{filename}
 ```
 
 The `latest` variant always resolves to the most recent non-prerelease release.
-This is useful in auto-install scripts: you never need to update the URL when
-you ship a new version.
+This is what the self-install script uses — the URL never needs updating when
+new versions ship.
 
 ---
 
-## 3. Self-installing shell scripts
+## 3. GitHub Actions: yes, GitHub compiles your code in the cloud
+
+This is the part that surprises many developers coming from interpreted languages
+like PHP. GitHub offers free cloud computing time for open-source projects, and
+you can use it to run arbitrary code — including compiling a Go binary.
+
+Here's what actually happens when you push a version tag:
+
+1. GitHub detects the tag and looks for matching workflow files in `.github/workflows/`
+2. GitHub spins up a fresh virtual machine (a Linux server in Microsoft's cloud)
+3. That VM clones your repository, installs Go, and runs your build commands
+4. The compiled binaries exist on that cloud VM
+5. The workflow uploads them as assets to a new GitHub Release
+6. The cloud VM is discarded — it existed for maybe 2 minutes
+
+The workflow file is just a recipe. It runs on GitHub's infrastructure, not
+yours. You never see the VM or interact with it — you push a tag, wait a minute,
+and a Release appears with four downloadable binaries attached.
+
+For PHP developers: this is roughly equivalent to a service that takes your
+Drupal codebase, runs `composer install`, zips the result, and posts the zip
+somewhere for download — except for compiled binaries instead of PHP packages.
+
+The workflow that does this lives in `.github/workflows/release.yml`. The key
+sections:
+
+```yaml
+on:
+  push:
+    tags:
+      - 'v*'       # run this workflow whenever a v* tag is pushed
+```
+
+```yaml
+- uses: actions/setup-go@v5    # install Go on the cloud VM
+  with:
+    go-version-file: go.mod    # use whatever version our project requires
+```
+
+```yaml
+- name: Build binaries for all platforms
+  run: |
+    GOOS=darwin GOARCH=arm64 go build -o dist/ddev-xdebug-tui-darwin-arm64 ...
+    GOOS=linux  GOARCH=amd64 go build -o dist/ddev-xdebug-tui-linux-amd64  ...
+    # etc.
+```
+
+```yaml
+- uses: softprops/action-gh-release@v2   # upload dist/* to the GitHub Release
+  with:
+    files: dist/*
+```
+
+The `permissions: contents: write` grant is required — without it the workflow
+cannot create releases or upload assets.
+
+After this workflow is in place, cutting a new release is two commands:
+
+```bash
+git tag v0.5.0
+git push --tags
+```
+
+Everything else happens in the cloud.
+
+---
+
+## 4. Self-installing shell scripts
 
 The host command script now installs the binary on first run. The pattern:
 
@@ -74,7 +154,7 @@ Key shell idioms:
 
 ---
 
-## 4. `uname` for OS and architecture detection
+## 5. `uname` for OS and architecture detection
 
 ```bash
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')   # "Darwin" → "darwin"
@@ -93,36 +173,6 @@ case "$ARCH" in
   arm64|aarch64) ARCH="arm64" ;;
 esac
 ```
-
----
-
-## 5. GitHub Actions for Go releases
-
-A GitHub Actions workflow is a YAML file in `.github/workflows/` that runs on
-trigger events. For a release workflow:
-
-```yaml
-on:
-  push:
-    tags:
-      - 'v*'       # triggers on any tag starting with "v"
-```
-
-The workflow uses two community actions:
-- `actions/setup-go@v5` — installs Go, version read from `go.mod`
-- `softprops/action-gh-release@v2` — creates the GitHub Release and uploads assets
-
-The `permissions: contents: write` grant is required for the workflow to create
-releases and upload files to the repository.
-
-After this is in place, cutting a new release is:
-
-```bash
-git tag v0.5.0
-git push --tags
-```
-
-GitHub Actions does the rest — builds four binaries and publishes the release.
 
 ---
 
@@ -149,15 +199,22 @@ dist:
 
 ## 7. Keeping binaries out of git
 
-Compiled binaries should never be committed — they're large, opaque, and
-platform-specific. Add to `.gitignore`:
+Compiled binaries should never be committed to git — they're large, platform-
+specific, and opaque (you can't diff them or review them meaningfully). Add to
+`.gitignore`:
 
 ```
 bin/
 dist/
 ```
 
-The GitHub Release is the right place for binaries; the git repository is for
-source code and documentation.
+This means `make dist` creates binaries on your local machine that git ignores
+completely. They exist temporarily so you can upload them to a GitHub Release
+with `gh release create`. Once uploaded, they live as Release assets — not in
+git — and you can delete the local `dist/` folder.
+
+The mental model: **git stores your source, GitHub Releases store your
+compiled output.** They are different systems that happen to live on the same
+website.
 
 Last updated: 2026-03-07 by claude-sonnet-4-6
