@@ -14,6 +14,10 @@ It focuses on the debugging features developers use most often, while remaining 
 
 # Why This Exists
 
+DDEV v1.25.1 shipped a feature that caught my eye: an interactive terminal dashboard. You type `ddev` at the command line, and instead of a wall of help text, you get a navigable UI — project management, logs, detail views, all in the terminal.
+
+I tried it immediately, and within a few minutes I had an idea: if DDEV can have present things using a terminal UI, could we have a Xdebug interface that doesn't require any manual configuration?  Using Claude, I was able to take that idea to a working proof of concept in less than 48 hours, without exceeding the limits of my $20/month Pro account.
+
 Xdebug debugging is usually done through large IDE integrations such as:
 
 - PhpStorm
