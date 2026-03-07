@@ -3,12 +3,58 @@
 ## Description: Launch the ddev-xdebug-tui terminal debugger
 ## Usage: xdebug-tui
 
+set -euo pipefail
+
+INSTALL_DIR="$HOME/.ddev-xdebug-tui"
+BINARY_PATH="$INSTALL_DIR/ddev-xdebug-tui"
+REPO="cellear/ddev-xdebug-tui"
+
+# ── Locate or install the binary ─────────────────────────────────────────────
+if command -v ddev-xdebug-tui &>/dev/null; then
+  # Already in PATH (e.g. installed via go install / make install)
+  BINARY_CMD="ddev-xdebug-tui"
+elif [ -x "$BINARY_PATH" ]; then
+  # Previously auto-installed to ~/.ddev-xdebug-tui/
+  BINARY_CMD="$BINARY_PATH"
+else
+  # First run — download the correct binary from the latest GitHub release
+  echo "ddev-xdebug-tui: binary not found, installing..."
+
+  OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+  ARCH=$(uname -m)
+
+  case "$ARCH" in
+    x86_64)         ARCH="amd64" ;;
+    arm64|aarch64)  ARCH="arm64" ;;
+    *) echo "Error: unsupported architecture: $ARCH" >&2; exit 1 ;;
+  esac
+
+  case "$OS" in
+    darwin|linux) ;;
+    *) echo "Error: unsupported OS: $OS (Windows is not yet supported)" >&2; exit 1 ;;
+  esac
+
+  URL="https://github.com/$REPO/releases/latest/download/ddev-xdebug-tui-${OS}-${ARCH}"
+  echo "Downloading from $URL ..."
+
+  mkdir -p "$INSTALL_DIR"
+  if curl -fsSL "$URL" -o "$BINARY_PATH"; then
+    chmod +x "$BINARY_PATH"
+    echo "Installed to $BINARY_PATH"
+    BINARY_CMD="$BINARY_PATH"
+  else
+    echo "Error: download failed." >&2
+    echo "Check https://github.com/$REPO/releases for available binaries." >&2
+    exit 1
+  fi
+fi
+
+# ── Launch ───────────────────────────────────────────────────────────────────
 # Ensure Xdebug is enabled before launching (idempotent if already on).
 ddev xdebug on
 
-# Run the debugger. Not exec so the trap below can fire on exit.
-ddev-xdebug-tui
+# Run the debugger. Not exec so xdebug off fires on exit.
+"$BINARY_CMD"
 
-# Turn Xdebug back off when the debugger exits so it doesn't slow
-# down normal requests after the session ends.
+# Turn Xdebug back off so it doesn't slow down normal requests.
 ddev xdebug off

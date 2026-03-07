@@ -7,7 +7,9 @@
 #
 # Note: ddev get will reinstall without requiring uninstall between iterations.
 
-.PHONY: build install clean
+.PHONY: build install dist clean
+
+PLATFORMS := darwin/amd64 darwin/arm64 linux/amd64 linux/arm64
 
 build:
 	@mkdir -p bin
@@ -19,5 +21,18 @@ install: build
 	@echo "Binary installed to ~/go/bin/ddev-xdebug-tui"
 	@echo "Ensure ~/go/bin is in your PATH for 'ddev xdebug-tui' to work"
 
+# Cross-compile binaries for all supported platforms.
+# Run before cutting a GitHub release: make dist && gh release create v0.x.0 dist/*
+dist:
+	@mkdir -p dist
+	@for platform in $(PLATFORMS); do \
+		os=$${platform%/*}; arch=$${platform#*/}; \
+		echo "Building $$os/$$arch..."; \
+		GOOS=$$os GOARCH=$$arch go build -o dist/ddev-xdebug-tui-$$os-$$arch ./cmd/ddev-xdebug-tui/; \
+	done
+	@echo ""
+	@echo "Binaries ready in dist/:"
+	@ls -lh dist/
+
 clean:
-	rm -rf bin/
+	rm -rf bin/ dist/

@@ -50,23 +50,17 @@ Breakpoints are **ephemeral per run**.
 
 # Installation
 
-**Step 1 — Install the binary** (requires Go):
-
-```
-git clone https://github.com/cellear/ddev-xdebug-tui.git
-cd ddev-xdebug-tui
-make install
-```
-
-This builds and copies `ddev-xdebug-tui` to `~/go/bin/`. Ensure `~/go/bin` is in your `PATH`.
-
-**Step 2 — Install the DDEV add-on** (from your DDEV project directory):
+From your DDEV project directory:
 
 ```
 ddev add-on get cellear/ddev-xdebug-tui
 ```
 
-This installs the `ddev xdebug-tui` command.
+That's it. The binary downloads automatically the first time you run `ddev xdebug-tui`.
+No Go installation required.
+
+**Developers:** If you have Go installed and want to build from source, `make install`
+builds and installs the binary to `~/go/bin/` and takes precedence over the auto-download.
 
 ---
 
